@@ -1,0 +1,6 @@
+[submodule "bpftrace"]
+	path = bpftrace
+	url = https://github.com/bpftrace/bpftrace
+[submodule "tests/cppspec"]
+	path = tests/cppspec
+	url = https://github.com/toroidal-code/cppspec
