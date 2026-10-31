@@ -1,6 +1,0 @@
-{
-    "workspace": {
-        "library": [ "/usr/local/share/nvim/runtime/lua" ],
-        "checkThirdParty": false
-    }
-}
