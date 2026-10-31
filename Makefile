@@ -1,9 +1,8 @@
 BUILD_DIR ?= build
 
-.PHONY: cqfd
-cqfd:
-	@./scripts/cqfd init > /dev/null
-	@./scripts/cqfd run make tests
+.PHONY: nix
+nix:
+	@nix develop --command make tests
 
 .PHONY: build
 build:

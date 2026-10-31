@@ -25,7 +25,7 @@ description: Guide test-driven development using plenary.nvim busted-style tests
 ## Running tests
 
 ```
-make tests        # runs full suite inside cqfd container
+make tests        # runs full suite inside the nix dev shell
 ```
 
 ## What belongs in a test
