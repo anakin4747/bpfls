@@ -1,8 +1,0 @@
-[project]
-org='anakin4747'
-name='bpfls'
-
-[build]
-command="make"
-
-# vi: ft=ini
