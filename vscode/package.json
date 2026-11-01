@@ -4,7 +4,7 @@
   "description": "bpftrace language support powered by the bpfls language server",
   "version": "0.0.1",
   "publisher": "bpfls",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "private": true,
   "engines": {
     "vscode": "^1.91.0"
