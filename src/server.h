@@ -17,6 +17,7 @@ public:
 
 private:
     lsp::ServerEndpoint endpoint_;
+    bool shutdown_requested_ = false;
 };
 
 } // namespace bpfls
