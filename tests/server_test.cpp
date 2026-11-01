@@ -333,14 +333,14 @@ describe server_test("Server", $ {
             expect(d.get("severity").number()).to_equal(1.0); // Error
             expect(d.get("source").string()).to_equal(std::string("bpftrace"));
 
-            // The error is on the `;` at 0-based column 12.
+            // The error is on the `;` at 0-based column 13.
             auto &range = d.get("range").object();
             auto &start = range.get("start").object();
             auto &end = range.get("end").object();
             expect(start.get("line").number()).to_equal(0.0);
-            expect(start.get("character").number()).to_equal(12.0);
+            expect(start.get("character").number()).to_equal(13.0);
             expect(end.get("line").number()).to_equal(0.0);
-            expect(end.get("character").number()).to_equal(13.0);
+            expect(end.get("character").number()).to_equal(14.0);
         });
 
         it("publishes every error, not just the first", _ {

@@ -5,6 +5,7 @@
 #include <lsp/connection.h>
 
 #include "bpf_docs.h"
+#include "diagnostics.h"
 
 namespace bpfls {
 
@@ -51,15 +52,14 @@ Server::Server(lsp::io::Stream &stream) : endpoint_(stream)
 
     endpoint_.onTextDocumentDidOpen(
         [this](lsp::DidOpenTextDocumentParams &&params) {
-        auto uri = params.textDocument.uri.toString();
-        documents_.insert_or_assign(
-            uri,
-            std::make_unique<Document>(uri,
-                                       std::move(params.textDocument.text)));
+        update(params.textDocument.uri,
+               params.textDocument.version,
+               std::move(params.textDocument.text));
     });
 
     // Only full-document sync is advertised, so the last change holds the
-    // whole new text.
+    // whole new text. Editors send this on every edit, not just on save, so
+    // diagnostics follow the text as it is typed.
     endpoint_.onTextDocumentDidChange(
         [this](lsp::DidChangeTextDocumentParams &&params) {
         if (params.contentChanges.empty())
@@ -68,18 +68,35 @@ Server::Server(lsp::io::Stream &stream) : endpoint_(stream)
             &params.contentChanges.back());
         if (whole == nullptr)
             return;
-        auto uri = params.textDocument.uri.toString();
-        documents_.insert_or_assign(
-            uri, std::make_unique<Document>(uri, std::move(whole->text)));
+        update(params.textDocument.uri,
+               params.textDocument.version,
+               std::move(whole->text));
     });
 
     endpoint_.onTextDocumentDidClose(
         [this](lsp::DidCloseTextDocumentParams &&params) {
         documents_.erase(params.textDocument.uri.toString());
+        // Clear the closed document's diagnostics in the editor.
+        endpoint_.textDocumentPublishDiagnostics({
+            .uri = params.textDocument.uri,
+            .diagnostics = {},
+        });
     });
 
     endpoint_.onTextDocumentHover(
         [this](lsp::HoverParams &&params) { return hover(params); });
+}
+
+void Server::update(const lsp::DocumentUri &uri, int version, std::string text)
+{
+    auto key = uri.toString();
+    auto document = std::make_unique<Document>(key, std::move(text));
+    endpoint_.textDocumentPublishDiagnostics({
+        .uri = uri,
+        .diagnostics = diagnostics(*document),
+        .version = version,
+    });
+    documents_.insert_or_assign(key, std::move(document));
 }
 
 lsp::TextDocumentHoverResult Server::hover(const lsp::HoverParams &params)

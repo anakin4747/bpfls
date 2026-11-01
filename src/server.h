@@ -22,6 +22,8 @@ public:
     int run();
 
 private:
+    // Re-parses `uri` from `text` and publishes its diagnostics.
+    void update(const lsp::DocumentUri &uri, int version, std::string text);
     lsp::TextDocumentHoverResult hover(const lsp::HoverParams &params);
 
     lsp::ServerEndpoint endpoint_;
