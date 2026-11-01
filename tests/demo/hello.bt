@@ -11,3 +11,27 @@ tracepoint:raw_syscalls:sys_enter {
 end {
     print(@syscalls);
 }
+
+// The probes below are deliberately broken, to show parser diagnostics. Each
+// has one mistake, because after an error the parser skips the rest of that
+// statement, which can hide a second mistake close by.
+
+interval:s:1 {
+    $x = ;
+}
+
+interval:s:2 {
+    print("one") print("two");
+}
+
+kprobe:do_nanosleep {
+    printf("\xZZ\n");
+}
+
+kprobe:do_nanosleep {
+    @calls = 1_;
+}
+
+tracepoint:raw_syscalls:sys_exit {
+    1++;
+}
