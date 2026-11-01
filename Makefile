@@ -17,7 +17,15 @@ build:
 .PHONY: test tests
 test tests: build
 	@cog check --from-latest-tag
-	@ctest --test-dir $(BUILD_DIR) --output-on-failure
+	@ctest --test-dir $(BUILD_DIR) --output-on-failure --label-exclude e2e
+
+# End-to-end tests run the real bpfls binary as a separate process. They are
+# slower and use real I/O, so they run in CI on push rather than on every
+# `make tests`.
+.PHONY: e2e
+e2e: build
+	@ctest --test-dir $(BUILD_DIR) --output-on-failure --label-regex e2e \
+		--no-tests=error
 
 .PHONY: clean
 clean:
