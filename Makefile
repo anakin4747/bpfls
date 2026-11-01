@@ -27,6 +27,18 @@ e2e: build
 	@ctest --test-dir $(BUILD_DIR) --output-on-failure --label-regex e2e \
 		--no-tests=error
 
+# Opens a bpftrace script in Neovim with bpfls as its language server. Both
+# run from the dev shell; the build is pinned to build/, where
+# tests/demo/init.lua expects the binary.
+.PHONY: demo
+demo:
+ifndef IN_NIX_SHELL
+	@$(SHELL_PREFIX) make demo
+else
+	@make build BUILD_DIR=build
+	@nvim --clean -u tests/demo/init.lua tests/demo/hello.bt
+endif
+
 .PHONY: clean
 clean:
 	@rm -rf $(BUILD_DIR)
