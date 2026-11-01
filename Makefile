@@ -20,8 +20,8 @@ test tests: build
 	@ctest --test-dir $(BUILD_DIR) --output-on-failure --label-exclude e2e
 
 # End-to-end tests run the real bpfls binary as a separate process. They are
-# slower and use real I/O, so they run in CI on push rather than on every
-# `make tests`.
+# slower and use real I/O, so they are left out of `make tests`; CI runs them
+# with everything else through `nix flake check`.
 .PHONY: e2e
 e2e: build
 	@ctest --test-dir $(BUILD_DIR) --output-on-failure --label-regex e2e \

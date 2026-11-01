@@ -1,0 +1,19 @@
+name: tests
+
+on:
+  push:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: cachix/install-nix-action@v31
+
+      # Builds bpfls and the VS Code extension and runs every test: the unit
+      # tests (in the bpfls build) and the end-to-end tests.
+      - name: nix flake check
+        run: nix flake check -L
