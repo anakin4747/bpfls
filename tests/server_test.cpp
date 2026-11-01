@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 // cppspec defines macros such as `it`, which clash with identifiers in
 // bpftrace's headers, so project headers must be included first.
@@ -59,13 +60,44 @@ std::string did_open(std::string_view text)
         json_string(text) + "}}}");
 }
 
-std::string did_change(std::string_view text)
+std::string did_change(std::string_view text, int version = 2)
 {
     return frame(
         R"({"jsonrpc":"2.0","method":"textDocument/didChange","params":{)"
         R"("textDocument":{"uri":")" +
-        uri + R"(","version":2},"contentChanges":[{"text":)" +
-        json_string(text) + "}]}}");
+        uri + R"(","version":)" + std::to_string(version) +
+        R"(},"contentChanges":[{"text":)" + json_string(text) + "}]}}");
+}
+
+std::string did_close()
+{
+    return frame(
+        R"({"jsonrpc":"2.0","method":"textDocument/didClose","params":{)"
+        R"("textDocument":{"uri":")" +
+        uri + R"("}}})");
+}
+
+// Runs a session of `messages_in` after initialization and returns the
+// params of every textDocument/publishDiagnostics notification, in order.
+std::vector<lsp::json::Value> published(const std::string &messages_in)
+{
+    bpfls::test::MemoryStream stream(initialize + initialized + messages_in);
+    bpfls::Server(stream).run();
+
+    std::vector<lsp::json::Value> result;
+    for (auto &message : messages(stream.output())) {
+        auto &object = message.object();
+        if (object.contains("method") &&
+            object.get("method").string() == "textDocument/publishDiagnostics")
+            result.push_back(object.get("params"));
+    }
+    return result;
+}
+
+// The diagnostics array of published params.
+const lsp::json::Array &diagnostics_of(const lsp::json::Value &params)
+{
+    return params.object().get("diagnostics").array();
 }
 
 // A hover request with id 2.
@@ -272,6 +304,121 @@ describe server_test("Server", $ {
                                  did_change("kprobe:foo { }") + hover(0, 2)) ==
                    std::nullopt)
                 .to_be_true();
+        });
+
+        it("still works in a document with syntax errors elsewhere", _ {
+            expect(hover_at("begin { }\nend { $x = ; }\n", 0, 1) ==
+                   begin_end_docs)
+                .to_be_true();
+        });
+    });
+
+    context("diagnostics", _ {
+        it("publishes a parser error when a document is opened", _ {
+            auto out = published(did_open("begin { $x = ; }"));
+            expect(out.size()).to_equal(1UL);
+            if (out.size() != 1UL)
+                return;
+            auto &params = out.at(0).object();
+            expect(params.get("uri").string()).to_equal(uri);
+            expect(params.get("version").number()).to_equal(1.0);
+
+            auto &diagnostics = diagnostics_of(out.at(0));
+            expect(diagnostics.size()).to_equal(1UL);
+            if (diagnostics.size() != 1UL)
+                return;
+            auto &d = diagnostics.at(0).object();
+            expect(d.get("message").string())
+                .to_equal(std::string("syntax: expected expression"));
+            expect(d.get("severity").number()).to_equal(1.0); // Error
+            expect(d.get("source").string()).to_equal(std::string("bpftrace"));
+
+            // The error is on the `;` at 0-based column 12.
+            auto &range = d.get("range").object();
+            auto &start = range.get("start").object();
+            auto &end = range.get("end").object();
+            expect(start.get("line").number()).to_equal(0.0);
+            expect(start.get("character").number()).to_equal(12.0);
+            expect(end.get("line").number()).to_equal(0.0);
+            expect(end.get("character").number()).to_equal(13.0);
+        });
+
+        it("publishes every error, not just the first", _ {
+            auto out = published(did_open("begin { $x = ; }\n"
+                                          "end { print( }\n"));
+            expect(out.size()).to_equal(1UL);
+            if (out.size() != 1UL)
+                return;
+            auto &diagnostics = diagnostics_of(out.at(0));
+            expect(diagnostics.size()).to_equal(2UL);
+            if (diagnostics.size() != 2UL)
+                return;
+            auto line = [&](std::size_t i) {
+                return diagnostics.at(i)
+                    .object()
+                    .get("range")
+                    .object()
+                    .get("start")
+                    .object()
+                    .get("line")
+                    .number();
+            };
+            expect(line(0)).to_equal(0.0);
+            expect(line(1)).to_equal(1.0);
+        });
+
+        it("publishes no diagnostics for a valid document", _ {
+            auto out = published(did_open("begin { print(1); }"));
+            expect(out.size()).to_equal(1UL);
+            if (out.size() == 1UL)
+                expect(diagnostics_of(out.at(0)).empty()).to_be_true();
+        });
+
+        it("clears the diagnostics when a change fixes the error", _ {
+            auto out = published(did_open("begin { $x = ; }") +
+                                 did_change("begin { $x = 1; }"));
+            expect(out.size()).to_equal(2UL);
+            if (out.size() != 2UL)
+                return;
+            expect(diagnostics_of(out.at(0)).size()).to_equal(1UL);
+            expect(diagnostics_of(out.at(1)).empty()).to_be_true();
+            expect(out.at(1).object().get("version").number()).to_equal(2.0);
+        });
+
+        it("follows every change, ending with the latest text", _ {
+            auto out = published(did_open("begin { }") +
+                                 did_change("begin { $x = ; }", 2) +
+                                 did_change("begin { }", 3) +
+                                 did_change("begin { }\nend { $y = ; }", 4));
+            expect(out.size()).to_equal(4UL);
+            if (out.size() != 4UL)
+                return;
+            expect(diagnostics_of(out.at(0)).size()).to_equal(0UL);
+            expect(diagnostics_of(out.at(1)).size()).to_equal(1UL);
+            expect(diagnostics_of(out.at(2)).size()).to_equal(0UL);
+            auto &last = diagnostics_of(out.at(3));
+            expect(last.size()).to_equal(1UL);
+            if (last.size() == 1UL) {
+                expect(last.at(0)
+                           .object()
+                           .get("range")
+                           .object()
+                           .get("start")
+                           .object()
+                           .get("line")
+                           .number())
+                    .to_equal(1.0);
+            }
+            expect(out.at(3).object().get("version").number()).to_equal(4.0);
+        });
+
+        it("clears the diagnostics when the document is closed", _ {
+            auto out = published(did_open("begin { $x = ; }") + did_close());
+            expect(out.size()).to_equal(2UL);
+            if (out.size() != 2UL)
+                return;
+            expect(out.at(1).object().get("uri").string()).to_equal(uri);
+            expect(diagnostics_of(out.at(1)).empty()).to_be_true();
         });
     });
 });
