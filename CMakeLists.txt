@@ -6,6 +6,15 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Generate compile_commands.json and link it into the source root so clangd
+# and other tools find it regardless of the build directory's name.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+file(CREATE_LINK
+  ${CMAKE_BINARY_DIR}/compile_commands.json
+  ${CMAKE_SOURCE_DIR}/compile_commands.json
+  SYMBOLIC
+)
+
 # Only the parts of bpftrace needed to parse a script are compiled; the rest
 # of bpftrace (LLVM codegen, runtime, ...) is never built.
 set(BPFTRACE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/bpftrace/src)
