@@ -1,6 +1,7 @@
 {
   lib,
   buildNpmPackage,
+  importNpmLock,
   vscode-utils,
   src,
 }:
@@ -9,14 +10,15 @@ let
   manifest = lib.importJSON "${src}/package.json";
 
   # The extension's files plus its npm dependencies (vscode-languageclient),
-  # fetched from vscode/package-lock.json. Update npmDepsHash when the lock
-  # file changes:
-  #   nix run nixpkgs#prefetch-npm-deps -- vscode/package-lock.json
+  # fetched one by one with the integrity hashes in vscode/package-lock.json.
+  # Unlike npmDepsHash this needs no updating when the lock file changes,
+  # which it does on every release (see pre_bump_hooks in cog.toml).
   files = buildNpmPackage {
     pname = "bpfls-vscode-files";
     inherit (manifest) version;
     inherit src;
-    npmDepsHash = "sha256-5haIwo4AYxZEHwfhEObgJvQ0ATCtJ3rBXjINUTeI1mk=";
+    npmDeps = importNpmLock { npmRoot = src; };
+    inherit (importNpmLock) npmConfigHook;
     dontNpmBuild = true;
     installPhase = ''
       runHook preInstall
