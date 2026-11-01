@@ -72,6 +72,8 @@
 
             cmakeFlags = [
               "-DFETCHCONTENT_FULLY_DISCONNECTED=ON"
+              # Optimised, without debug info: smaller and quicker to build.
+              "-DCMAKE_BUILD_TYPE=Release"
             ]
             ++ lib.optionals withTests [
               "-DBPFLS_BUILD_TESTS=ON"
