@@ -131,6 +131,10 @@ target_link_libraries(bpfls_core PUBLIC bpftrace_parser lsp)
 
 add_executable(bpfls src/main.cpp)
 target_link_libraries(bpfls PRIVATE bpfls_core)
+# The docs bpfls shows are compiled in, so the binary is all there is to
+# install.
+include(GNUInstallDirs)
+install(TARGETS bpfls RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 enable_testing()
 add_subdirectory(tests)
