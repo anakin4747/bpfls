@@ -177,6 +177,67 @@ std::string language_docs(const std::string &start, const std::string &end)
 
 const std::string begin_end_docs = language_docs("### begin/end", "### test");
 
+// A section of stdlib.md, read from disk by the test: its `### name` heading
+// up to the next `##` or `###` heading.
+struct StdlibSection {
+    std::string name;
+    std::string text;
+};
+
+// Every section of stdlib.md, read from disk by the test, so a section added
+// upstream fails a test until hover supports it.
+std::vector<StdlibSection> read_stdlib_sections()
+{
+    auto path = std::filesystem::path(__FILE__).parent_path() /
+                "../bpftrace/docs/stdlib.md";
+    std::ifstream in(path);
+    std::vector<StdlibSection> sections;
+    std::string line;
+    bool inside = false;
+    while (std::getline(in, line)) {
+        if (line.starts_with("## ") || line.starts_with("### "))
+            inside = false;
+        if (line.starts_with("### ")) {
+            sections.push_back({ line.substr(4), "" });
+            inside = true;
+        }
+        if (inside)
+            sections.back().text += line + "\n";
+    }
+    return sections;
+}
+
+const std::vector<StdlibSection> stdlib_sections = read_stdlib_sections();
+
+// Names documented in both language.md and stdlib.md hover with both
+// sections, each labelled with the file it comes from.
+std::string joined_docs(const std::string &language, const std::string &stdlib)
+{
+    return "*From language.md*\n\n" + language +
+           "\n---\n\n*From stdlib.md*\n\n" + stdlib;
+}
+
+const std::string type_context_docs = language_docs("### Type Context Builtins",
+                                                    "### Pointers");
+
+// The hover expected for stdlib section `s`.
+std::string expected_stdlib_hover(const StdlibSection &s)
+{
+    if (s.name == "sizeof" || s.name == "offsetof" || s.name == "typeof")
+        return joined_docs(type_context_docs, s.text);
+    return s.text;
+}
+
+// A call to stdlib function `name` with arguments it needs to parse.
+std::string stdlib_call(const std::string &name)
+{
+    if (name == "sizeof")
+        return "sizeof(int)";
+    if (name == "offsetof")
+        return "offsetof(struct f, x)";
+    return name + "()";
+}
+
 // A hover the server must give: hovering `line`:`character` in `text`
 // shows the language.md section from `start` up to `end`.
 struct HoverCase {
@@ -260,10 +321,8 @@ const std::vector<HoverCase> construct_cases = {
     { "begin { $a = (uint8)1; }",          0, 13, "### Type Conversion", "## Variables and Maps" },
     { "begin { $a++; }",                   0, 10, "### Increment and Decrement Operators", "### Block Expressions" },
     { "begin { --$a; }",                   0, 8,  "### Increment and Decrement Operators", "### Block Expressions" },
-    { "begin { $a = sizeof(int); }",       0, 13, "### Type Context Builtins", "### Pointers" },
-    { "begin { $a = offsetof(struct f, x); }", 0, 13, "### Type Context Builtins", "### Pointers" },
+    // sizeof, offsetof and typeof are also in stdlib.md; see below.
     { "begin { $a = typeinfo(1); }",       0, 13, "### Type Context Builtins", "### Pointers" },
-    { "begin { $a = typeof(1); }",         0, 13, "### Type Context Builtins", "### Pointers" },
 };
 // clang-format on
 
@@ -455,8 +514,45 @@ describe server_test("Server", $ {
                     .to_be_true();
             });
 
-            it("shows nothing on an ordinary function call", _ {
-                expect(hover_at("begin { print(1); }", 0, 8) == std::nullopt)
+            it("shows nothing on a function it has no docs for", _ {
+                expect(hover_at("begin { my_func(1); }", 0, 8) == std::nullopt)
+                    .to_be_true();
+            });
+        });
+
+        context("standard library", _ {
+            it("has the stdlib.md sections to check against", _ {
+                expect(stdlib_sections.size() > 100).to_be_true();
+            });
+
+            // `begin { $a = ` is 13 characters.
+            for (const auto &section : stdlib_sections) {
+                const std::string call = stdlib_call(section.name);
+                const std::string call_title = "shows \"### " + section.name +
+                                               "\" on `" + call + "`";
+                it(call_title.c_str(), _ {
+                    expect(hover_at("begin { $a = " + call + "; }", 0, 13) ==
+                           expected_stdlib_hover(section))
+                        .to_be_true();
+                });
+
+                // Written without parentheses, e.g. `pid` or `comm`.
+                if (section.name == "sizeof" || section.name == "offsetof")
+                    continue;
+                const std::string bare_title = "shows \"### " + section.name +
+                                               "\" on bare `" + section.name +
+                                               "`";
+                it(bare_title.c_str(), _ {
+                    expect(hover_at("begin { $a = " + section.name + "; }",
+                                    0,
+                                    13) == expected_stdlib_hover(section))
+                        .to_be_true();
+                });
+            }
+
+            it("shows nothing on internal builtins", _ {
+                expect(hover_at("begin { $a = __builtin_comm; }", 0, 13) ==
+                       std::nullopt)
                     .to_be_true();
             });
         });
