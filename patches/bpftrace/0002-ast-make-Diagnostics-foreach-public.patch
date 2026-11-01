@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Anakin Childerhose <anakin@childerhose.ca>
+Date: Sun, 1 Nov 2026 14:34:48 -0500
+Subject: [PATCH] ast: make Diagnostics::foreach public
+
+A language server needs to read each diagnostic's message, hints and
+location to report them to the editor. foreach was the only way to
+iterate the diagnostics, but it was private, leaving only emit()'s
+formatted text.
+---
+ src/ast/diagnostic.h | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/ast/diagnostic.h b/src/ast/diagnostic.h
+index e4ca195..4752d21 100644
+--- a/src/ast/diagnostic.h
++++ b/src/ast/diagnostic.h
+@@ -134,7 +134,8 @@ public:
+   // adds all diagnostics from some other set.
+   void add(Diagnostics&& other);
+ 
+-private:
++  // Calls `fn` with each diagnostic of the given severity, in the order they
++  // were added.
+   void foreach(Severity severity,
+                std::function<void(const Diagnostic&)> fn) const
+   {
+@@ -147,6 +148,7 @@ private:
+     }
+   }
+ 
++private:
+   // Two-dimensional vector with all diagnostics. The first level is indexed by
+   // severity, and the second level is the set of diagnostics for that level.
+   //

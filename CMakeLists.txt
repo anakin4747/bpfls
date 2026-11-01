@@ -29,18 +29,31 @@ file(GLOB BPFTRACE_PATCHES CONFIGURE_DEPENDS
 list(SORT BPFTRACE_PATCHES)
 
 # Every file touched by a patch must be listed here; `git apply` fails loudly
-# if one is missing.
+# if one is missing. Files that include a patched header by a path relative
+# to themselves (e.g. `#include "diagnostic.h"` in src/ast/) must be listed
+# too, so that include finds the patched copy rather than the original;
+# otherwise one translation unit could see both versions of the header.
 set(BPFTRACE_PATCHED_FILES
   src/parser.cpp
   src/parser.h
+  src/ast/ast.h
+  src/ast/diagnostic.cpp
+  src/ast/diagnostic.h
 )
 set(BPFTRACE_PATCHED_DIR ${CMAKE_CURRENT_BINARY_DIR}/bpftrace-patched)
 
 set(patched_outputs "")
 set(patched_originals "")
+set(copy_originals "")
 foreach(file IN LISTS BPFTRACE_PATCHED_FILES)
   list(APPEND patched_outputs ${BPFTRACE_PATCHED_DIR}/${file})
   list(APPEND patched_originals ${CMAKE_CURRENT_SOURCE_DIR}/bpftrace/${file})
+  cmake_path(GET file PARENT_PATH dir)
+  list(APPEND copy_originals
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${BPFTRACE_PATCHED_DIR}/${dir}
+    COMMAND ${CMAKE_COMMAND} -E copy
+            ${CMAKE_CURRENT_SOURCE_DIR}/bpftrace/${file}
+            ${BPFTRACE_PATCHED_DIR}/${file})
 endforeach()
 
 # The patched copy lives inside the bpfls repo; GIT_CEILING_DIRECTORIES stops
@@ -57,9 +70,7 @@ endforeach()
 add_custom_command(
   OUTPUT ${patched_outputs}
   COMMAND ${CMAKE_COMMAND} -E rm -rf ${BPFTRACE_PATCHED_DIR}
-  COMMAND ${CMAKE_COMMAND} -E make_directory ${BPFTRACE_PATCHED_DIR}/src
-  COMMAND ${CMAKE_COMMAND} -E copy ${patched_originals}
-          ${BPFTRACE_PATCHED_DIR}/src
+  ${copy_originals}
   ${apply_patches}
   DEPENDS ${BPFTRACE_PATCHES} ${patched_originals}
   COMMENT "Applying bpfls patches to bpftrace"
@@ -70,13 +81,15 @@ add_library(bpftrace_parser STATIC
   src/bpftrace_shims.cpp
   ${BPFTRACE_PATCHED_DIR}/src/parser.cpp
   ${BPFTRACE_PATCHED_DIR}/src/parser.h
+  ${BPFTRACE_PATCHED_DIR}/src/ast/ast.h
+  ${BPFTRACE_PATCHED_DIR}/src/ast/diagnostic.cpp
+  ${BPFTRACE_PATCHED_DIR}/src/ast/diagnostic.h
   ${BPFTRACE_SRC}/btf/btf.cpp
   ${BPFTRACE_SRC}/log.cpp
   ${BPFTRACE_SRC}/probe_types.cpp
   ${BPFTRACE_SRC}/types.cpp
   ${BPFTRACE_SRC}/ast/ast.cpp
   ${BPFTRACE_SRC}/ast/context.cpp
-  ${BPFTRACE_SRC}/ast/diagnostic.cpp
   ${BPFTRACE_SRC}/ast/location.cpp
   ${BPFTRACE_SRC}/ast/pass_manager.cpp
   ${BPFTRACE_SRC}/util/int_parser.cpp
