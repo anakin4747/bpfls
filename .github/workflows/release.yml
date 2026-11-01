@@ -1,0 +1,89 @@
+name: release
+
+# Runs when `make release` (scripts/release.sh) pushes an annotated v* tag.
+# Publishes a GitHub release with the static bpfls binary and the VS Code
+# extension, using the tag message (the changelog) as the release notes.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # Only anakin4747 may release, whoever owns the copy of the repository.
+    if: >-
+      github.repository == 'anakin4747/bpfls' &&
+      github.actor == 'anakin4747' &&
+      github.triggering_actor == 'anakin4747'
+    # The `release` environment adds a second gate: in Settings ->
+    # Environments, limit it to v* tags and require anakin4747's approval.
+    environment: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      # actions/checkout replaces an annotated tag with a lightweight one, so
+      # fetch the real tag object again before reading it.
+      - name: Check the tag is an annotated release tag
+        run: |
+          git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+          if [ "$(git cat-file -t "$TAG")" != tag ]; then
+            echo "::error::$TAG is not an annotated tag"
+            exit 1
+          fi
+          version=${TAG#v}
+          if [ "$(jq -r .version vscode/package.json)" != "$version" ]; then
+            echo "::error::vscode/package.json is not at $version"
+            exit 1
+          fi
+          if ! grep --quiet --fixed-strings "version = \"$version\";" flake.nix; then
+            echo "::error::flake.nix is not at $version"
+            exit 1
+          fi
+          git tag --list --format='%(contents:body)' "$TAG" > notes.md
+
+      - uses: cachix/install-nix-action@v31
+
+      - name: nix flake check
+        run: nix flake check -L
+
+      - name: Build the static bpfls binary
+        run: |
+          nix build -L .#bpfls-static
+          install -D --mode=0755 result/bin/bpfls "dist/bpfls-$TAG-x86_64-linux"
+
+      - name: Package the VS Code extension
+        working-directory: vscode
+        run: |
+          nix develop .. --command bash -c "
+            npm ci --no-audit --no-fund &&
+            npx --yes @vscode/vsce@3 package \
+              --allow-missing-repository --skip-license \
+              --out ../dist/bpfls-$TAG.vsix < /dev/null"
+
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum -- * > SHA256SUMS
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG" \
+            --verify-tag \
+            --title "$TAG" \
+            --notes-file notes.md \
+            dist/*
