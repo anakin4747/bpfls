@@ -111,5 +111,8 @@ add_library(bpfls_core STATIC src/document.cpp src/server.cpp)
 target_include_directories(bpfls_core PUBLIC src)
 target_link_libraries(bpfls_core PUBLIC bpftrace_parser lsp)
 
+add_executable(bpfls src/main.cpp)
+target_link_libraries(bpfls PRIVATE bpfls_core)
+
 enable_testing()
 add_subdirectory(tests)
