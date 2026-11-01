@@ -1,0 +1,207 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Anakin Childerhose <anakin@childerhose.ca>
+Date: Sun, 1 Nov 2026 09:23:54 -0500
+Subject: [PATCH] parser: recover from syntax errors and keep parsing
+
+The parser used to stop at the first syntax error: every loop was guarded
+by has_errors() and parse_block() discarded its block once any error had
+been reported. A language server needs every error in the file and an AST
+for the parts that did parse.
+
+- Keep parsing after errors in the root and block loops.
+- After a broken statement, skip to the next ';' or the enclosing '}'
+  (sync_to_statement_end), ignoring nested brackets, strings and comments.
+- After a broken root item, skip to the next line starting in column 1
+  (sync_to_root_item).
+- Keep a block even if its closing '}' is missing.
+- Report at most one error per input position to avoid cascades.
+---
+ src/parser.cpp | 94 ++++++++++++++++++++++++++++++++++++++++++++------
+ src/parser.h   |  4 +++
+ 2 files changed, 87 insertions(+), 11 deletions(-)
+
+diff --git a/src/parser.cpp b/src/parser.cpp
+index fdd8b975..bb3a7dc1 100644
+--- a/src/parser.cpp
++++ b/src/parser.cpp
+@@ -83,7 +83,7 @@ Program *Parser::parse_program()
+   // Must appear after header but before config/imports/probes.
+   CStatementList c_stmts;
+   consume_layout();
+-  while (!at_end() && !has_errors()) {
++  while (!at_end()) {
+     // C preprocessor directives: #include, #define, etc.
+     if (peek() == '#' && peek(1) != '!') {
+       c_stmts.push_back(parse_c_preprocessor());
+@@ -105,7 +105,7 @@ Program *Parser::parse_program()
+   // in any order relative to each other.
+   Config *config = nullptr;
+ 
+-  while (!at_end() && !has_errors()) {
++  while (!at_end()) {
+     auto kw = peek_keyword();
+     // Config block (at most one).
+     if (kw == "config") {
+@@ -130,12 +130,14 @@ Program *Parser::parse_program()
+   }
+ 
+   // Main loop: probes, macros, functions, and map declarations.
+-  while (!at_end() && !has_errors()) {
++  while (!at_end()) {
+     consume_layout();
+     if (at_end()) {
+       break;
+     }
+     size_t before = pos_;
++    size_t errors_before = error_count();
++    size_t root_stmts_before = root_stmts.size();
+     auto kw = peek_keyword();
+     if (peek() == '#' && peek(1) != '!') {
+       auto current_pos = get_current_line_col();
+@@ -213,6 +215,12 @@ Program *Parser::parse_program()
+       error("unexpected input");
+       advance();
+     }
++    // Error recovery: if this item failed to produce a node, skip the rest
++    // of it so the next probe/function is parsed from a clean position.
++    if (error_count() > errors_before &&
++        root_stmts.size() == root_stmts_before) {
++      sync_to_root_item(before);
++    }
+     consume_layout();
+   }
+ 
+@@ -837,8 +845,9 @@ BlockExpr *Parser::parse_block(bool allow_trailing_expr)
+   std::optional<Expression> trailing_expr;
+   consume_layout();
+ 
+-  while (peek() != '}' && !at_end() && !has_errors()) {
++  while (peek() != '}' && !at_end()) {
+     size_t before = pos_;
++    size_t errors_before = error_count();
+ 
+     auto kw = peek_keyword();
+ 
+@@ -960,15 +969,17 @@ BlockExpr *Parser::parse_block(bool allow_trailing_expr)
+       error("unexpected input in block");
+       advance();
+     }
++    // Error recovery: skip the rest of a broken statement so the following
++    // statements are still parsed.
++    if (error_count() > errors_before) {
++      sync_to_statement_end();
++    }
+     consume_layout();
+   }
+ 
+-  if (has_errors()) {
+-    return nullptr;
+-  }
+-  if (!expect('}')) {
+-    return nullptr;
+-  }
++  // Keep the block even if it is unterminated, so the statements parsed so
++  // far are not lost.
++  expect('}');
+ 
+   auto loc = make_loc(block_line, block_col, line_, col_);
+ 
+@@ -3259,7 +3270,62 @@ std::string Parser::consume_integer_str()
+ 
+ bool Parser::has_errors() const
+ {
+-  return ctx_.state_->diagnostics_->error_count() > 0;
++  return error_count() > 0;
++}
++
++size_t Parser::error_count() const
++{
++  return ctx_.state_->diagnostics_->error_count();
++}
++
++void Parser::sync_to_root_item(size_t item_start)
++{
++  // Root items (probes, functions, macros, ...) conventionally start in the
++  // first column. Skip to the next line that starts with something other
++  // than whitespace or a closing brace.
++  while (!at_end()) {
++    if (pos_ > item_start && col_ == 1) {
++      char c = peek();
++      if (!std::isspace(c) && c != '}') {
++        return;
++      }
++    }
++    advance();
++  }
++}
++
++void Parser::sync_to_statement_end()
++{
++  // The broken statement may already have consumed its terminator.
++  if (previous_non_hspace() == ';') {
++    return;
++  }
++  // Skip to the next ';' or the '}' closing the enclosing block, ignoring
++  // anything nested in brackets, strings and comments.
++  int depth = 0;
++  while (!at_end()) {
++    char c = peek();
++    if (c == '"') {
++      consume_string();
++      continue;
++    }
++    if (c == '/' && (peek(1) == '/' || peek(1) == '*')) {
++      consume_layout();
++      continue;
++    }
++    if (c == '(' || c == '[' || c == '{') {
++      depth++;
++    } else if (c == ')' || c == ']' || c == '}') {
++      if (depth == 0) {
++        return; // Leave the closing bracket for the enclosing block.
++      }
++      depth--;
++    } else if (c == ';' && depth == 0) {
++      advance();
++      return;
++    }
++    advance();
++  }
+ }
+ 
+ void Parser::error(const std::string &msg)
+@@ -3310,6 +3376,12 @@ void Parser::error(const std::string &msg,
+                    int end_line,
+                    int end_col)
+ {
++  // During error recovery several parse functions may fail at the same
++  // position; only the first error there is useful.
++  if (last_error_pos_ == pos_) {
++    return;
++  }
++  last_error_pos_ = pos_;
+   auto loc = make_loc(begin_line, begin_col, end_line, end_col);
+   SourceLocation valid(ctx_.source());
+   valid.begin = loc.begin;
+diff --git a/src/parser.h b/src/parser.h
+index 852a10fb..55022e69 100644
+--- a/src/parser.h
++++ b/src/parser.h
+@@ -139,6 +139,9 @@ private:
+ 
+   // Error reporting
+   bool has_errors() const;
++  size_t error_count() const;
++  void sync_to_statement_end();
++  void sync_to_root_item(size_t item_start);
+   void error(const std::string &msg);
+   void error(const std::string &msg,
+              int begin_line,
+@@ -190,6 +193,7 @@ private:
+   size_t pos_ = 0;
+   int line_ = 1;
+   int col_ = 1;
++  std::optional<size_t> last_error_pos_;
+ };
+ 
+ } // namespace bpftrace

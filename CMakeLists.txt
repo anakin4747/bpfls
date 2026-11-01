@@ -19,11 +19,55 @@ file(CREATE_LINK
 # of bpftrace (LLVM codegen, runtime, ...) is never built.
 set(BPFTRACE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/bpftrace/src)
 
+# bpfls carries a few changes to bpftrace as patches (patches/bpftrace/).
+# The submodule is never modified: the files the patches touch are copied
+# into the build tree, patched there, and compiled instead of the originals.
+# This re-runs whenever a patch or an original file changes.
+find_program(PATCH_EXECUTABLE patch REQUIRED)
+file(GLOB BPFTRACE_PATCHES CONFIGURE_DEPENDS
+  ${CMAKE_CURRENT_SOURCE_DIR}/patches/bpftrace/*.patch)
+list(SORT BPFTRACE_PATCHES)
+
+# Every file touched by a patch must be listed here; `patch` fails loudly
+# if one is missing.
+set(BPFTRACE_PATCHED_FILES
+  src/parser.cpp
+  src/parser.h
+)
+set(BPFTRACE_PATCHED_DIR ${CMAKE_CURRENT_BINARY_DIR}/bpftrace-patched)
+
+set(patched_outputs "")
+set(patched_originals "")
+foreach(file IN LISTS BPFTRACE_PATCHED_FILES)
+  list(APPEND patched_outputs ${BPFTRACE_PATCHED_DIR}/${file})
+  list(APPEND patched_originals ${CMAKE_CURRENT_SOURCE_DIR}/bpftrace/${file})
+endforeach()
+
+set(apply_patches "")
+foreach(patch IN LISTS BPFTRACE_PATCHES)
+  list(APPEND apply_patches
+    COMMAND ${PATCH_EXECUTABLE} --quiet --forward --strip=1
+            --directory=${BPFTRACE_PATCHED_DIR} --input=${patch})
+endforeach()
+
+add_custom_command(
+  OUTPUT ${patched_outputs}
+  COMMAND ${CMAKE_COMMAND} -E rm -rf ${BPFTRACE_PATCHED_DIR}
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${BPFTRACE_PATCHED_DIR}/src
+  COMMAND ${CMAKE_COMMAND} -E copy ${patched_originals}
+          ${BPFTRACE_PATCHED_DIR}/src
+  ${apply_patches}
+  DEPENDS ${BPFTRACE_PATCHES} ${patched_originals}
+  COMMENT "Applying bpfls patches to bpftrace"
+  VERBATIM
+)
+
 add_library(bpftrace_parser STATIC
   src/bpftrace_shims.cpp
+  ${BPFTRACE_PATCHED_DIR}/src/parser.cpp
+  ${BPFTRACE_PATCHED_DIR}/src/parser.h
   ${BPFTRACE_SRC}/btf/btf.cpp
   ${BPFTRACE_SRC}/log.cpp
-  ${BPFTRACE_SRC}/parser.cpp
   ${BPFTRACE_SRC}/probe_types.cpp
   ${BPFTRACE_SRC}/types.cpp
   ${BPFTRACE_SRC}/ast/ast.cpp
@@ -35,6 +79,10 @@ add_library(bpftrace_parser STATIC
   ${BPFTRACE_SRC}/util/result.cpp
   ${BPFTRACE_SRC}/util/strings.cpp
 )
+# Patched headers must shadow the originals for every consumer, otherwise
+# e.g. Parser would have two different layouts in one program.
+target_include_directories(bpftrace_parser BEFORE PUBLIC
+  ${BPFTRACE_PATCHED_DIR}/src)
 target_include_directories(bpftrace_parser PUBLIC ${BPFTRACE_SRC})
 # Some of these files also contain runtime code we never call. Put every
 # function in its own section so the linker can drop the unused ones (and
