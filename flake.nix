@@ -16,14 +16,18 @@
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {
           packages = with pkgs; [
+            cereal
             cloc
             cmake
             cocogitto
             curl
+            elfutils.dev
             gcc
             git
             gnumake
             jq
+            libbpf
+            llvm.dev
             ninja
           ];
         };
