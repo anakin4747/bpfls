@@ -1,7 +1,7 @@
-// A script to try bpfls on. Hover over probe types, config names, keywords
-// and the other marked constructs to see their docs from bpftrace's
-// language.md. The probes at the end are deliberately broken to show parser
-// diagnostics.
+// A script to try bpfls on. Hover over probe types, config names, keywords,
+// standard library names and the other marked constructs to see their docs
+// from bpftrace's language.md and stdlib.md. The probes at the end are
+// deliberately broken to show parser diagnostics.
 //
 // It is a tour of what bpfls understands, not a script meant to be run.
 
@@ -188,6 +188,83 @@ interval:s:5 {
     $info = typeinfo($count);
 
     $next = add_one($count);
+}
+
+// Standard library: hover any helper or map value function.
+
+kprobe:vfs_read {
+    // Process and thread.
+    $proc = (pid, tid, uid, gid, ppid, cpid, has_cpid(), comm, pcomm,
+             username, leader_comm, leader_tid);
+
+    // Where it ran.
+    $place = (cpu, ncpus, numaid, arch, curtask, cwd, cgroup, cgroupid,
+              cgroup_path(cgroup));
+
+    // Clocks and randomness.
+    $clock = (nsecs, elapsed, jiffies, rand, time("%H:%M:%S"),
+              strftime("%H:%M:%S", nsecs));
+
+    // What fired.
+    $here = (probe, probetype, func, retval, usermode, socket_cookie(arg0));
+
+    // Stacks, symbols and addresses.
+    $stacks = (kstack, ustack, dw_ustack, ksym(reg("ip")), usym(reg("ip")),
+               kaddr("do_nanosleep"), uaddr("main"),
+               percpu_kaddr("runqueues"));
+
+    // Strings and buffers.
+    $text = (str(arg0), buf(arg1, 16), strlen("abc"), strncmp("a", "b", 1),
+             strcontains("ab", "a"), strstr("ab", "b"), str_concat("a", "b"),
+             strcap("abc", 2), join(arg1), path(arg0), abs_path(arg0),
+             strerror(2), syscall_name(0), signal_name(9), macaddr(arg0),
+             ntop(arg0), pton("127.0.0.1"), memcmp(arg0, arg1, 4), bswap(arg0),
+             default_str_length);
+
+    // Values, pointers and maps.
+    $checks = (is_array(arg0), is_err(arg0), is_integer(arg0), is_literal(1),
+               is_ptr(arg0), is_str("a"), is_unsigned_integer(arg0),
+               kptr(arg0), uptr(arg0), container_of(arg0, task_struct, tasks),
+               kfunc_allowed("bpf_get_task_stack"),
+               kfunc_exist("bpf_get_task_stack"), find(@syscalls, 0),
+               has_key(@syscalls, 0), len(@syscalls));
+
+    // Sizes and options.
+    $sizes = (sizeof(uint64), offsetof(struct task_struct, pid), typeof(arg0),
+              config("max_strlen"), getopt("verbose"));
+
+    // Map value functions.
+    @calls = count();
+    @bytes = sum(arg2);
+    @mean = avg(arg2);
+    @least = min(arg2);
+    @most = max(arg2);
+    @summary = stats(arg2);
+    @sizes = hist(arg2);
+    @buckets = lhist(arg2, 0, 1000, 100);
+    @series = tseries(arg2, 1000000000, 10);
+
+    // Output and side effects.
+    print(@calls);
+    printf("%d\n", pid);
+    errorf("bad value %d", arg2);
+    warnf("odd value %d", arg2);
+    assert(arg2 >= 0, "negative read");
+    assert_str("abc", "abc");
+    static_assert(1, "always true");
+    cat("/proc/loadavg");
+    system("true");
+    signal("SIGUSR1");
+    signal_thread("SIGUSR1");
+    override(0);
+    skboutput("out.pcap", arg0, 64, 0);
+    unwatch(0);
+    write_user(arg0, 0);
+    delete(@calls, 0);
+    zero(@bytes);
+    clear(@mean);
+    fail("unreachable");
+    exit();
 }
 
 // The probes below are deliberately broken, to show parser diagnostics. Each
