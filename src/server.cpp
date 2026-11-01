@@ -87,7 +87,7 @@ lsp::TextDocumentHoverResult Server::hover(const lsp::HoverParams &params)
     if (it == documents_.end())
         return nullptr;
 
-    std::string_view docs = hover_docs(it->second->node_at(params.position));
+    std::string docs = hover_docs(it->second->node_at(params.position));
     if (docs.empty())
         return nullptr;
 
@@ -95,7 +95,7 @@ lsp::TextDocumentHoverResult Server::hover(const lsp::HoverParams &params)
         .contents =
             lsp::MarkupContent{
                 .kind = lsp::MarkupKind::Markdown,
-                .value = std::string(docs),
+                .value = std::move(docs),
             },
     };
 }

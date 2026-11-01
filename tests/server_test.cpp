@@ -432,7 +432,8 @@ describe server_test("Server", $ {
         });
 
         it("shows nothing inside the probe's body", _ {
-            expect(hover_at("begin { print(1); }", 0, 9) == std::nullopt)
+            // On the `1`; `print` itself has stdlib docs.
+            expect(hover_at("begin { print(1); }", 0, 14) == std::nullopt)
                 .to_be_true();
         });
 

@@ -31,15 +31,22 @@ inline constexpr unsigned char language_md_bytes[] = {
 #embed "../bpftrace/docs/language.md"
 };
 
+inline constexpr unsigned char stdlib_md_bytes[] = {
+#embed "../bpftrace/docs/stdlib.md"
+};
+
 #pragma GCC diagnostic pop
 
 inline constexpr auto language_md = as_chars(language_md_bytes);
+inline constexpr auto stdlib_md = as_chars(stdlib_md_bytes);
 
 // The embedded docs file called `file`.
 consteval std::string_view docs_file(std::string_view file)
 {
     if (file == "language.md")
         return { language_md.data(), language_md.size() };
+    if (file == "stdlib.md")
+        return { stdlib_md.data(), stdlib_md.size() };
     throw "bpf_docs: unknown docs file; embed it in bpf_docs.h";
 }
 
