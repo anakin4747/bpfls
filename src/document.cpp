@@ -27,4 +27,9 @@ bpftrace::ast::ASTContext &Document::ast()
   return ast_;
 }
 
+bpftrace::ast::Node *Document::node_at([[maybe_unused]] Position pos)
+{
+  return nullptr;
+}
+
 } // namespace bpfls
