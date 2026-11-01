@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.2.1](https://github.com/anakin4747/bpfls/compare/9c1e59efdab2e530a26d484138852ffef57b6fb7..v0.2.1) - 2026-11-01
+#### CD
+- check the release commit builds before pushing it - ([0b8a933](https://github.com/anakin4747/bpfls/commit/0b8a933812bb7b41fc05fdc04c8c66ffdc0404ab)) - Anakin Childerhose
+#### Bug Fixes
+- (**build**) fetch extension npm deps without a hash that releases break - ([9c1e59e](https://github.com/anakin4747/bpfls/commit/9c1e59efdab2e530a26d484138852ffef57b6fb7)) - Anakin Childerhose
+
+- - -
+
 ## [v0.2.0](https://github.com/anakin4747/bpfls/compare/6bcb9716e83c885617c503d5fc6f4d1a30c74a1e..v0.2.0) - 2026-11-01
 #### CD
 - publish GitHub releases from annotated tags - ([ef9fe8a](https://github.com/anakin4747/bpfls/commit/ef9fe8aa2b41bbddf98e8580519565d592dae32e)) - Anakin Childerhose
