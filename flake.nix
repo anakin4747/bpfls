@@ -40,6 +40,10 @@
             # Linux, for release artifacts. LLVM is already linked
             # statically; this adds glibc, libstdc++ and zlib.
             static ? false,
+            # Builds and runs the unit tests. Off for installs, which then
+            # skip compiling cppspec and the test executables; on for
+            # `nix flake check` (see checks below).
+            withTests ? false,
           }:
           let
             # cppspec (tests/cppspec) downloads these with CMake's
@@ -68,6 +72,8 @@
 
             cmakeFlags = [
               "-DFETCHCONTENT_FULLY_DISCONNECTED=ON"
+            ]
+            ++ lib.optionals withTests [
               "-DBPFLS_BUILD_TESTS=ON"
               # cppspec asks for argparse v3.2, the version nixpkgs packages.
               "-DFETCHCONTENT_SOURCE_DIR_ARGPARSE=${argparse.src}"
@@ -91,9 +97,9 @@
               zlib.static
             ];
 
-            # The unit tests run in the build; the end-to-end tests are a
-            # separate check (see checks.e2e below).
-            doCheck = true;
+            # With withTests, the unit tests run in the build; the end-to-end
+            # tests are a separate check (see checks.e2e below).
+            doCheck = withTests;
             checkPhase = ''
               runHook preCheck
               ctest --output-on-failure --label-exclude e2e
@@ -188,12 +194,13 @@
         };
       };
 
-      # `nix flake check` runs every test: the unit tests (in the bpfls
-      # build) and the end-to-end tests, which start the real binary.
+      # `nix flake check` runs every test: the unit tests (in a bpfls build
+      # with tests) and the end-to-end tests, which start the real binary.
       checks = forAllSystems (
         pkgs:
         let
-          inherit (self.packages.${pkgs.stdenv.hostPlatform.system}) bpfls vscode-extension;
+          inherit (self.packages.${pkgs.stdenv.hostPlatform.system}) vscode-extension;
+          bpfls = self.packages.${pkgs.stdenv.hostPlatform.system}.bpfls.override { withTests = true; };
         in
         {
           inherit bpfls vscode-extension;
