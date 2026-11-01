@@ -1,7 +1,13 @@
 #pragma once
 
+#include <map>
+#include <memory>
+#include <string>
+
 #include <lsp/io/stream.h>
 #include <lsp/server_endpoint.h>
+
+#include "document.h"
 
 namespace bpfls {
 
@@ -16,8 +22,13 @@ public:
     int run();
 
 private:
+    lsp::TextDocumentHoverResult hover(const lsp::HoverParams &params);
+
     lsp::ServerEndpoint endpoint_;
     bool shutdown_requested_ = false;
+    // Open documents by URI. Held by pointer because a Document's AST refers
+    // back into it, so it must not move.
+    std::map<std::string, std::unique_ptr<Document>> documents_;
 };
 
 } // namespace bpfls

@@ -1,15 +1,41 @@
 #include "server.h"
 
+#include <string_view>
+
 #include <lsp/connection.h>
 
+#include "bpf_docs.h"
+
 namespace bpfls {
+
+namespace {
+
+constexpr std::string_view begin_end_docs = bpf_docs("language.md",
+                                                     "### begin/end",
+                                                     "### test");
+
+// The docs to show when hovering `node`, or empty if there are none.
+std::string_view docs_for(const bpftrace::ast::Node *node)
+{
+    const auto *ap = dynamic_cast<const bpftrace::ast::AttachPoint *>(node);
+    if (ap == nullptr)
+        return {};
+    if (ap->raw_input == "begin" || ap->raw_input == "end")
+        return begin_end_docs;
+    return {};
+}
+
+} // namespace
 
 Server::Server(lsp::io::Stream &stream) : endpoint_(stream)
 {
     endpoint_.onInitialize(
         [](lsp::InitializeParams &&) -> lsp::InitializeResult {
         return {
-            .capabilities = {},
+            .capabilities = {
+                .textDocumentSync = lsp::TextDocumentSyncKind::Full,
+                .hoverProvider = true,
+            },
             .serverInfo = lsp::ServerInfo{ .name = "bpfls" },
         };
     });
@@ -22,6 +48,57 @@ Server::Server(lsp::io::Stream &stream) : endpoint_(stream)
     // Nothing to clean up, but the endpoint only ends its message loop on
     // `exit` when a handler is registered for it.
     endpoint_.onExit([] {});
+
+    endpoint_.onTextDocumentDidOpen(
+        [this](lsp::DidOpenTextDocumentParams &&params) {
+        auto uri = params.textDocument.uri.toString();
+        documents_.insert_or_assign(
+            uri,
+            std::make_unique<Document>(uri,
+                                       std::move(params.textDocument.text)));
+    });
+
+    // Only full-document sync is advertised, so the last change holds the
+    // whole new text.
+    endpoint_.onTextDocumentDidChange(
+        [this](lsp::DidChangeTextDocumentParams &&params) {
+        if (params.contentChanges.empty())
+            return;
+        auto *whole = std::get_if<lsp::TextDocumentContentChangeWholeDocument>(
+            &params.contentChanges.back());
+        if (whole == nullptr)
+            return;
+        auto uri = params.textDocument.uri.toString();
+        documents_.insert_or_assign(
+            uri, std::make_unique<Document>(uri, std::move(whole->text)));
+    });
+
+    endpoint_.onTextDocumentDidClose(
+        [this](lsp::DidCloseTextDocumentParams &&params) {
+        documents_.erase(params.textDocument.uri.toString());
+    });
+
+    endpoint_.onTextDocumentHover(
+        [this](lsp::HoverParams &&params) { return hover(params); });
+}
+
+lsp::TextDocumentHoverResult Server::hover(const lsp::HoverParams &params)
+{
+    auto it = documents_.find(params.textDocument.uri.toString());
+    if (it == documents_.end())
+        return nullptr;
+
+    std::string_view docs = docs_for(it->second->node_at(params.position));
+    if (docs.empty())
+        return nullptr;
+
+    return lsp::Hover{
+        .contents =
+            lsp::MarkupContent{
+                .kind = lsp::MarkupKind::Markdown,
+                .value = std::string(docs),
+            },
+    };
 }
 
 int Server::run()
