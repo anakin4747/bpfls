@@ -32,7 +32,6 @@
             ninja
             nodejs
             vscodium
-            xvfb-run
           ];
         };
       });

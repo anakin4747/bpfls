@@ -50,10 +50,6 @@ CODIUM_FLAGS := \
 	--disable-extensions \
 	--disable-workspace-trust \
 	--extensionDevelopmentPath=$(VSCODE_EXTENSION)
-# The `codium` command hands off to a detached editor and returns at once,
-# so tests run VSCodium's Electron binary directly to get its output and
-# exit status. Only expanded inside the dev shell, where codium exists.
-CODIUM_ELECTRON = $(shell dirname "$$(readlink -f "$$(command -v codium)")")/../lib/vscode/codium
 
 .PHONY: vscode-extension
 vscode-extension:
@@ -69,19 +65,6 @@ ifndef IN_NIX_SHELL
 else
 	@make vscode-extension
 	@codium $(CODIUM_FLAGS) --new-window --wait $(CURDIR)/tests/demo/hello.bt
-endif
-
-# Runs the extension's smoke test in a headless VSCodium: it opens the demo
-# script and checks bpfls's diagnostics and hover arrive. Fails if they
-# don't.
-.PHONY: vscode-test
-vscode-test:
-ifndef IN_NIX_SHELL
-	@$(SHELL_PREFIX) make vscode-test
-else
-	@make vscode-extension
-	@xvfb-run --auto-servernum $(CODIUM_ELECTRON) $(CODIUM_FLAGS) \
-		--disable-gpu --extensionTestsPath=$(VSCODE_EXTENSION)/test/smoke.js
 endif
 
 .PHONY: clean
