@@ -100,9 +100,16 @@ target_compile_definitions(bpftrace_parser PUBLIC ${LLVM_DEFINITIONS})
 llvm_map_components_to_libnames(LLVM_LIBS support)
 target_link_libraries(bpftrace_parser PUBLIC ${LLVM_LIBS})
 
+# lsp-framework provides the LSP types, JSON-RPC and the stdio transport.
+# Its types are generated from the LSP meta model at build time.
+set(LSP_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(LSP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(LSP_INSTALL OFF CACHE BOOL "" FORCE)
+add_subdirectory(lsp-framework EXCLUDE_FROM_ALL)
+
 add_library(bpfls_core STATIC src/document.cpp)
 target_include_directories(bpfls_core PUBLIC src)
-target_link_libraries(bpfls_core PUBLIC bpftrace_parser)
+target_link_libraries(bpfls_core PUBLIC bpftrace_parser lsp)
 
 enable_testing()
 add_subdirectory(tests)
