@@ -1,5 +1,13 @@
 tag_prefix = "v"
 
+# `cog bump` (run by scripts/release.sh) writes the new version into these
+# files, then commits them together with CHANGELOG.md as the release commit.
+pre_bump_hooks = [
+  "sed --in-place --regexp-extended 's/^(\\s*version = )\"[^\"]*\";/\\1\"{{version}}\";/' flake.nix",
+  "grep --quiet --fixed-strings 'version = \"{{version}}\";' flake.nix",
+  "npm --prefix vscode version {{version}} --no-git-tag-version --allow-same-version",
+]
+
 [commit_types]
   [commit_types.feat]
   changelog_title = "Features"
@@ -22,6 +30,6 @@ tag_prefix = "v"
   path = "CHANGELOG.md"
   template = "remote"
   remote = "github.com"
-  repository = "@NAME@"
-  owner = "@ORG@"
+  repository = "bpfls"
+  owner = "anakin4747"
   authors = []

@@ -70,3 +70,14 @@ endif
 .PHONY: clean
 clean:
 	@rm -rf $(BUILD_DIR)
+
+# Writes CHANGELOG.md, bumps the versions, commits and tags the release with
+# cocogitto and pushes it, which starts .github/workflows/release.yml. See
+# scripts/release.sh; `make release-dry-run` only prints what it would do.
+.PHONY: release
+release:
+	@$(SHELL_PREFIX) ./scripts/release.sh
+
+.PHONY: release-dry-run
+release-dry-run:
+	@$(SHELL_PREFIX) ./scripts/release.sh --dry-run
