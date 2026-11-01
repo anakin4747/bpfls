@@ -28,6 +28,8 @@
     {
       packages = forAllSystems (pkgs: {
         bpfls = mkBpfls pkgs;
+        # The release binary (see .github/workflows/release.yml).
+        bpfls-static = (mkBpfls pkgs).override { static = true; };
         vscode-extension = mkVscodeExtension pkgs;
         default = self.packages.${pkgs.stdenv.hostPlatform.system}.bpfls;
       });

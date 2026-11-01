@@ -10,8 +10,14 @@
   cereal,
   argparse,
   fetchFromGitHub,
+  glibc,
+  zlib,
   src,
   version,
+  # Links a fully static binary that runs on any x86_64/aarch64 Linux, for
+  # release artifacts. LLVM is already linked statically; this adds glibc,
+  # libstdc++ and zlib.
+  static ? false,
 }:
 
 let
@@ -42,6 +48,11 @@ stdenv.mkDerivation {
     # cppspec asks for argparse v3.2, the version nixpkgs packages.
     "-DFETCHCONTENT_SOURCE_DIR_ARGPARSE=${argparse.src}"
     "-DFETCHCONTENT_SOURCE_DIR_CXX-PRETTYPRINT=${cxx-prettyprint}"
+  ]
+  ++ lib.optionals static [
+    "-DCMAKE_EXE_LINKER_FLAGS=-static"
+    # LLVM's CMake package finds zlib itself; point it at the archive.
+    "-DZLIB_LIBRARY=${zlib.static}/lib/libz.a"
   ];
 
   buildInputs = [
@@ -49,6 +60,10 @@ stdenv.mkDerivation {
     libbpf
     elfutils.dev
     cereal
+  ]
+  ++ lib.optionals static [
+    glibc.static
+    zlib.static
   ];
 
   # The unit tests run in the build; the end-to-end tests are a separate
