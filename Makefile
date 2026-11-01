@@ -1,8 +1,13 @@
 BUILD_DIR ?= build
 
+SHELL_PREFIX :=
+ifndef IN_NIX_SHELL
+SHELL_PREFIX := nix develop --experimental-features 'nix-command flakes' --command
+endif
+
 .PHONY: nix
 nix:
-	@nix develop --command make tests
+	@$(SHELL_PREFIX) make tests
 
 .PHONY: build
 build:
