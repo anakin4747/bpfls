@@ -1,6 +1,6 @@
 // A small script to try bpfls on: counts syscalls per process until Ctrl-C.
 
-BEGIN {
+begin {
     printf("Counting syscalls... Hit Ctrl-C to end.\n");
 }
 
@@ -8,6 +8,6 @@ tracepoint:raw_syscalls:sys_enter {
     @syscalls[comm] = count();
 }
 
-END {
+end {
     print(@syscalls);
 }
