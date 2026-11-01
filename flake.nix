@@ -30,6 +30,9 @@
             llvm.dev
             neovim
             ninja
+            nodejs
+            vscodium
+            xvfb-run
           ];
         };
       });
