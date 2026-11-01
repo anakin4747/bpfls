@@ -82,7 +82,7 @@ private:
 
 } // namespace
 
-bpftrace::ast::Node *Document::node_at(Position pos)
+bpftrace::ast::Node *Document::node_at(const lsp::Position &pos)
 {
     if (ast_.root == nullptr)
         return nullptr;
