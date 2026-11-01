@@ -15,7 +15,7 @@
       ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (s: f nixpkgs.legacyPackages.${s});
 
-      version = "0.1.0";
+      version = "0.2.0";
 
       mkBpfls =
         pkgs:

@@ -2,7 +2,7 @@
   "name": "bpfls",
   "displayName": "bpftrace (bpfls)",
   "description": "bpftrace language support powered by the bpfls language server",
-  "version": "0.0.1",
+  "version": "0.2.0",
   "publisher": "bpfls",
   "license": "Apache-2.0",
   "private": true,
