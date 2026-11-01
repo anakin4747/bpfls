@@ -33,7 +33,7 @@
         "bpfls.serverPath": {
           "type": "string",
           "default": "",
-          "description": "Path to the bpfls executable. Empty uses build/bpfls in the bpfls repository this extension lives in."
+          "description": "Path to the bpfls executable. Empty uses bpfls on PATH (or build/bpfls when run from the bpfls repository)."
         }
       }
     }
