@@ -17,13 +17,157 @@
 
       version = "0.2.1";
 
+      # Written as callPackage functions so the result has .override
+      # (e.g. bpfls-static below).
       mkBpfls =
         pkgs:
-        pkgs.callPackage ./nix/bpfls.nix {
-          src = self;
-          inherit version;
-        };
-      mkVscodeExtension = pkgs: pkgs.callPackage ./nix/vscode-extension.nix { src = ./vscode; };
+        pkgs.callPackage (
+          {
+            lib,
+            stdenv,
+            cmake,
+            ninja,
+            git,
+            llvm,
+            libbpf,
+            elfutils,
+            cereal,
+            argparse,
+            fetchFromGitHub,
+            glibc,
+            zlib,
+            # Links a fully static binary that runs on any x86_64/aarch64
+            # Linux, for release artifacts. LLVM is already linked
+            # statically; this adds glibc, libstdc++ and zlib.
+            static ? false,
+          }:
+          let
+            # cppspec (tests/cppspec) downloads these with CMake's
+            # FetchContent, which the build sandbox has no network for, so
+            # they are fetched here and handed to CMake instead. prettyprint
+            # is pinned to the commit cppspec's `master` resolved to when
+            # this was written.
+            cxx-prettyprint = fetchFromGitHub {
+              owner = "louisdx";
+              repo = "cxx-prettyprint";
+              rev = "9ab26d228f2960f50b38ad37fe0159b7381f7533";
+              hash = "sha256-4R5q0KlcvXPMvs6MZUZ8ByHpuoNRHCcGiRUsh7gv4q4=";
+            };
+          in
+          stdenv.mkDerivation {
+            pname = "bpfls";
+            inherit version;
+            src = self;
+
+            nativeBuildInputs = [
+              cmake
+              ninja
+              # Applies bpfls's patches to bpftrace during the build.
+              git
+            ];
+
+            cmakeFlags = [
+              "-DFETCHCONTENT_FULLY_DISCONNECTED=ON"
+              # cppspec asks for argparse v3.2, the version nixpkgs packages.
+              "-DFETCHCONTENT_SOURCE_DIR_ARGPARSE=${argparse.src}"
+              "-DFETCHCONTENT_SOURCE_DIR_CXX-PRETTYPRINT=${cxx-prettyprint}"
+            ]
+            ++ lib.optionals static [
+              "-DCMAKE_EXE_LINKER_FLAGS=-static"
+              # LLVM's CMake package finds zlib itself; point it at the
+              # archive.
+              "-DZLIB_LIBRARY=${zlib.static}/lib/libz.a"
+            ];
+
+            buildInputs = [
+              llvm.dev
+              libbpf
+              elfutils.dev
+              cereal
+            ]
+            ++ lib.optionals static [
+              glibc.static
+              zlib.static
+            ];
+
+            # The unit tests run in the build; the end-to-end tests are a
+            # separate check (see checks.e2e below).
+            doCheck = true;
+            checkPhase = ''
+              runHook preCheck
+              ctest --output-on-failure --label-exclude e2e
+              runHook postCheck
+            '';
+
+            meta = {
+              description = "Language server for bpftrace";
+              homepage = "https://github.com/anakin4747/bpfls";
+              license = lib.licenses.asl20;
+              mainProgram = "bpfls";
+              platforms = lib.platforms.linux;
+            };
+          }
+        ) { };
+
+      mkVscodeExtension =
+        pkgs:
+        pkgs.callPackage (
+          {
+            lib,
+            buildNpmPackage,
+            importNpmLock,
+            vscode-utils,
+          }:
+          let
+            src = ./vscode;
+            manifest = lib.importJSON "${src}/package.json";
+
+            # The extension's files plus its npm dependencies
+            # (vscode-languageclient), fetched one by one with the integrity
+            # hashes in vscode/package-lock.json. Unlike npmDepsHash this
+            # needs no updating when the lock file changes, which it does on
+            # every release (see pre_bump_hooks in cog.toml).
+            files = buildNpmPackage {
+              pname = "bpfls-vscode-files";
+              inherit (manifest) version;
+              inherit src;
+              npmDeps = importNpmLock { npmRoot = src; };
+              inherit (importNpmLock) npmConfigHook;
+              dontNpmBuild = true;
+              installPhase = ''
+                runHook preInstall
+                mkdir -p $out
+                cp -r package.json extension.js language-configuration.json \
+                  node_modules $out/
+                runHook postInstall
+              '';
+            };
+          in
+          vscode-utils.buildVscodeExtension {
+            pname = "bpfls";
+            inherit (manifest) version;
+            src = files;
+            vscodeExtPublisher = manifest.publisher;
+            vscodeExtName = manifest.name;
+            vscodeExtUniqueId = "${manifest.publisher}.${manifest.name}";
+
+            # The source is a directory, not a .vsix; put it where the
+            # builder looks.
+            unpackPhase = ''
+              runHook preUnpack
+              cp -r ${files} extension
+              chmod -R u+w extension
+              runHook postUnpack
+            '';
+
+            meta = {
+              description = "bpftrace language support in VS Code, using bpfls";
+              homepage = "https://github.com/anakin4747/bpfls";
+              license = lib.licenses.asl20;
+              platforms = lib.platforms.linux;
+            };
+          }
+        ) { };
     in
     {
       packages = forAllSystems (pkgs: {
