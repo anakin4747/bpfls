@@ -11,7 +11,7 @@ nix:
 
 .PHONY: build
 build:
-	@cmake -S . -B $(BUILD_DIR) -G Ninja
+	@cmake -S . -B $(BUILD_DIR) -G Ninja -DBPFLS_BUILD_TESTS=ON
 	@cmake --build $(BUILD_DIR)
 
 .PHONY: test tests

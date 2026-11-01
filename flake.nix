@@ -68,6 +68,7 @@
 
             cmakeFlags = [
               "-DFETCHCONTENT_FULLY_DISCONNECTED=ON"
+              "-DBPFLS_BUILD_TESTS=ON"
               # cppspec asks for argparse v3.2, the version nixpkgs packages.
               "-DFETCHCONTENT_SOURCE_DIR_ARGPARSE=${argparse.src}"
               "-DFETCHCONTENT_SOURCE_DIR_CXX-PRETTYPRINT=${cxx-prettyprint}"

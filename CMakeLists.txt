@@ -122,5 +122,11 @@ target_link_libraries(bpfls PRIVATE bpfls_core)
 include(GNUInstallDirs)
 install(TARGETS bpfls RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-enable_testing()
-add_subdirectory(tests)
+# The tests pull in cppspec and link LLVM into every test executable, which
+# makes the build much slower and hungrier for memory. They are off unless
+# asked for; `make` and `nix flake check` turn them on.
+option(BPFLS_BUILD_TESTS "Build the unit and end-to-end tests" OFF)
+if(BPFLS_BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
