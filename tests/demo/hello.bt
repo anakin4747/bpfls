@@ -1,15 +1,193 @@
-// A small script to try bpfls on: counts syscalls per process until Ctrl-C.
+// A script to try bpfls on. Hover over probe types, config names, keywords
+// and the other marked constructs to see their docs from bpftrace's
+// language.md. The probes at the end are deliberately broken to show parser
+// diagnostics.
+//
+// It is a tour of what bpfls understands, not a script meant to be run.
+
+config = {
+    cache_user_symbols = PER_PID;
+    cpp_demangle = 1;
+    lazy_symbolication = 0;
+    license = "GPL";
+    log_size = 1000000;
+    max_bpf_progs = 1024;
+    max_cat_bytes = 10240;
+    max_map_keys = 4096;
+    max_probes = 1024;
+    max_strlen = 64;
+    missing_probes = warn;
+    on_stack_limit = 32;
+    perf_rb_pages = 64;
+    show_debug_info = 0;
+    stack_mode = bpftrace;
+    str_trunc_trailer = "..";
+    print_maps_on_exit = 1;
+    bpftrace_max_probes = 2048;
+    unstable_tseries = warn;
+}
+
+import "helpers";
+
+macro add_one(x) {
+    x + 1
+}
+
+let @syscalls = hash(4096);
+
+// Special probes.
 
 begin {
     printf("Counting syscalls... Hit Ctrl-C to end.\n");
 }
 
-tracepoint:raw_syscalls:sys_enter {
-    @syscalls[comm] = count();
+BEGIN {
+    printf("Uppercase BEGIN and END work too.\n");
 }
 
 end {
     print(@syscalls);
+}
+
+END {
+    clear(@syscalls);
+}
+
+self:signal:SIGUSR1 {
+    print(@syscalls);
+}
+
+test:counts_start_empty {
+    return 0;
+}
+
+bench:map_update {
+    @syscalls[0] = count();
+}
+
+// Kernel probes, each with its short alias.
+
+kprobe:do_nanosleep {
+    $first = arg0;
+    $tenth = arg10;
+}
+
+k:do_nanosleep { }
+
+kretprobe:do_nanosleep { }
+
+kr:do_nanosleep { }
+
+fentry:do_nanosleep {
+    $req = args.rqtp;
+}
+
+f:do_nanosleep { }
+
+fexit:do_nanosleep { }
+
+fr:do_nanosleep { }
+
+tracepoint:raw_syscalls:sys_enter {
+    @syscalls[comm] = count();
+}
+
+t:raw_syscalls:sys_exit { }
+
+rawtracepoint:sys_enter { }
+
+rt:sys_exit { }
+
+iter:task { }
+
+it:task_file { }
+
+// User-space probes.
+
+uprobe:/bin/bash:readline { }
+
+u:/bin/bash:readline { }
+
+uretprobe:/bin/bash:readline { }
+
+ur:/bin/bash:readline { }
+
+usdt:/usr/bin/python3:python:function__entry { }
+
+U:/usr/bin/python3:python:function__return { }
+
+// Timed and event probes.
+
+profile:hz:99 { }
+
+p:hz:99 { }
+
+interval:s:1 { }
+
+i:ms:100 { }
+
+software:page-faults:100 { }
+
+s:faults:100 { }
+
+hardware:cache-misses:1000000 { }
+
+h:cycles:1000000 { }
+
+watchpoint:0x10000000:8:rw { }
+
+w:0x10000000:8:w { }
+
+// Language constructs: hover the keyword, operator or brackets.
+
+interval:s:5 {
+    import "more_helpers";
+
+    // Positional parameters.
+    $limit = $1;
+    $count = $#;
+
+    // Loops.
+    for $i : 0..3 {
+        printf("%d\n", $i);
+    }
+    for $kv : @syscalls {
+        printf("%s\n", $kv.0);
+    }
+    while ($limit > 0) {
+        $limit--;
+    }
+    unroll(3) {
+        $count++;
+    }
+
+    // Conditionals.
+    if ($count > 10) {
+        print("many");
+    } else {
+        print("few");
+    }
+    $size = $count > 10 ? "many" : "few";
+
+    // Increment and decrement.
+    ++$count;
+    --$count;
+
+    // Tuples and records.
+    $pair = (1, "one");
+    $one = $pair.1;
+    $point = (x = 1, y = 2);
+
+    // Casts.
+    $byte = (uint8)$count;
+
+    // Type context builtins.
+    $width = sizeof(uint64);
+    $offset = offsetof(struct task_struct, pid);
+    $type = typeof($count);
+    $info = typeinfo($count);
+
+    $next = add_one($count);
 }
 
 // The probes below are deliberately broken, to show parser diagnostics. Each
