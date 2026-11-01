@@ -276,9 +276,10 @@ describe server_test("Server", $ {
                 .to_be_true();
         });
 
-        it("shows nothing on uppercase BEGIN and END", _ {
-            expect(hover_at("BEGIN { }", 0, 2) == std::nullopt).to_be_true();
-            expect(hover_at("END { }", 0, 1) == std::nullopt).to_be_true();
+        it("shows the begin/end docs on uppercase BEGIN and END", _ {
+            // bpftrace matches probe providers case-insensitively.
+            expect(hover_at("BEGIN { }", 0, 2) == begin_end_docs).to_be_true();
+            expect(hover_at("END { }", 0, 1) == begin_end_docs).to_be_true();
         });
 
         it("shows nothing on other probes", _ {

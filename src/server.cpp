@@ -1,11 +1,13 @@
 #include "server.h"
 
+#include <string>
 #include <string_view>
 
 #include <lsp/connection.h>
 
 #include "bpf_docs.h"
 #include "diagnostics.h"
+#include "probe_types.h"
 
 namespace bpfls {
 
@@ -15,13 +17,24 @@ constexpr std::string_view begin_end_docs = bpf_docs("language.md",
                                                      "### begin/end",
                                                      "### test");
 
+// The probe provider of an attach point, resolved the way bpftrace's attach
+// point pass does: the text before the first ':' or '@', with aliases
+// expanded and case ignored (so `BEGIN` is `begin`).
+std::string provider_of(const bpftrace::ast::AttachPoint &ap)
+{
+    std::string_view raw = ap.raw_input;
+    raw = raw.substr(0, raw.find_first_of(":@"));
+    return bpftrace::expand_probe_name(std::string(raw));
+}
+
 // The docs to show when hovering `node`, or empty if there are none.
 std::string_view docs_for(const bpftrace::ast::Node *node)
 {
     const auto *ap = dynamic_cast<const bpftrace::ast::AttachPoint *>(node);
     if (ap == nullptr)
         return {};
-    if (ap->raw_input == "begin" || ap->raw_input == "end")
+    std::string provider = provider_of(*ap);
+    if (provider == "begin" || provider == "end")
         return begin_end_docs;
     return {};
 }
