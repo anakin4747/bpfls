@@ -38,7 +38,7 @@ for arg in "$@"; do
 done
 
 missing=""
-for prog in git cog npm sed grep; do
+for prog in git cog npm nix sed grep; do
     if ! command -v "$prog" > /dev/null; then
         missing="$missing $prog"
     fi
@@ -125,6 +125,15 @@ fi
 if [ "$(git cat-file -t "$next")" != "tag" ]; then
     die "$next is not an annotated tag"
 fi
+
+# The release commit changes the versions the Nix build reads; check it
+# builds and passes before anything leaves this machine.
+log "checking the $next release commit with nix flake check"
+if ! nix flake check --print-build-logs; then
+    die "checking the $next release commit with nix flake check failed;" \
+        "undo with: git tag --delete $next && git reset --hard HEAD~1"
+fi
+log "checking the $next release commit with nix flake check succeeded"
 
 if [ "$push" -eq 0 ]; then
     log "not pushing; run: git push --atomic $REMOTE $BRANCH $next"
