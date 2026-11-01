@@ -120,7 +120,12 @@ set(LSP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LSP_INSTALL OFF CACHE BOOL "" FORCE)
 add_subdirectory(lsp-framework EXCLUDE_FROM_ALL)
 
-add_library(bpfls_core STATIC src/diagnostics.cpp src/document.cpp src/server.cpp)
+add_library(bpfls_core STATIC
+  src/diagnostics.cpp
+  src/document.cpp
+  src/hover_docs.cpp
+  src/server.cpp
+)
 target_include_directories(bpfls_core PUBLIC src)
 target_link_libraries(bpfls_core PUBLIC bpftrace_parser lsp)
 

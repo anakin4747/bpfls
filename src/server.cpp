@@ -5,41 +5,10 @@
 
 #include <lsp/connection.h>
 
-#include "bpf_docs.h"
 #include "diagnostics.h"
-#include "probe_types.h"
+#include "hover_docs.h"
 
 namespace bpfls {
-
-namespace {
-
-constexpr std::string_view begin_end_docs = bpf_docs("language.md",
-                                                     "### begin/end",
-                                                     "### test");
-
-// The probe provider of an attach point, resolved the way bpftrace's attach
-// point pass does: the text before the first ':' or '@', with aliases
-// expanded and case ignored (so `BEGIN` is `begin`).
-std::string provider_of(const bpftrace::ast::AttachPoint &ap)
-{
-    std::string_view raw = ap.raw_input;
-    raw = raw.substr(0, raw.find_first_of(":@"));
-    return bpftrace::expand_probe_name(std::string(raw));
-}
-
-// The docs to show when hovering `node`, or empty if there are none.
-std::string_view docs_for(const bpftrace::ast::Node *node)
-{
-    const auto *ap = dynamic_cast<const bpftrace::ast::AttachPoint *>(node);
-    if (ap == nullptr)
-        return {};
-    std::string provider = provider_of(*ap);
-    if (provider == "begin" || provider == "end")
-        return begin_end_docs;
-    return {};
-}
-
-} // namespace
 
 Server::Server(lsp::io::Stream &stream) : endpoint_(stream)
 {
@@ -118,7 +87,7 @@ lsp::TextDocumentHoverResult Server::hover(const lsp::HoverParams &params)
     if (it == documents_.end())
         return nullptr;
 
-    std::string_view docs = docs_for(it->second->node_at(params.position));
+    std::string_view docs = hover_docs(it->second->node_at(params.position));
     if (docs.empty())
         return nullptr;
 
