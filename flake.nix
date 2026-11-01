@@ -28,6 +28,7 @@
             jq
             libbpf
             llvm.dev
+            neovim
             ninja
           ];
         };
