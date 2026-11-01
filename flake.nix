@@ -25,7 +25,6 @@
             gcc
             git
             gnumake
-            gnupatch
             jq
             libbpf
             llvm.dev

@@ -23,12 +23,12 @@ set(BPFTRACE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/bpftrace/src)
 # The submodule is never modified: the files the patches touch are copied
 # into the build tree, patched there, and compiled instead of the originals.
 # This re-runs whenever a patch or an original file changes.
-find_program(PATCH_EXECUTABLE patch REQUIRED)
+find_package(Git REQUIRED)
 file(GLOB BPFTRACE_PATCHES CONFIGURE_DEPENDS
   ${CMAKE_CURRENT_SOURCE_DIR}/patches/bpftrace/*.patch)
 list(SORT BPFTRACE_PATCHES)
 
-# Every file touched by a patch must be listed here; `patch` fails loudly
+# Every file touched by a patch must be listed here; `git apply` fails loudly
 # if one is missing.
 set(BPFTRACE_PATCHED_FILES
   src/parser.cpp
@@ -43,11 +43,15 @@ foreach(file IN LISTS BPFTRACE_PATCHED_FILES)
   list(APPEND patched_originals ${CMAKE_CURRENT_SOURCE_DIR}/bpftrace/${file})
 endforeach()
 
+# The patched copy lives inside the bpfls repo; GIT_CEILING_DIRECTORIES stops
+# `git apply` from finding that repo, so it patches paths relative to the
+# working directory instead of the repo root.
 set(apply_patches "")
 foreach(patch IN LISTS BPFTRACE_PATCHES)
   list(APPEND apply_patches
-    COMMAND ${PATCH_EXECUTABLE} --quiet --forward --strip=1
-            --directory=${BPFTRACE_PATCHED_DIR} --input=${patch})
+    COMMAND ${CMAKE_COMMAND} -E env
+            GIT_CEILING_DIRECTORIES=${CMAKE_CURRENT_BINARY_DIR}
+            ${GIT_EXECUTABLE} -C ${BPFTRACE_PATCHED_DIR} apply ${patch})
 endforeach()
 
 add_custom_command(
