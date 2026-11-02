@@ -8,6 +8,9 @@ scripts, built on bpftrace's own parser.
 - **Hover:** documentation from bpftrace's `language.md` and `stdlib.md` for
   probe types, config variables, language constructs and standard library
   helpers. The docs are compiled into the binary.
+- **Formatting:** whole documents, exactly as `bpftrace --fmt` lays them out.
+  Scripts with syntax errors are left untouched. Range formatting is not
+  supported.
 
 ## Install
 

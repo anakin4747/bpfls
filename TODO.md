@@ -32,7 +32,3 @@ function signatures
 ---
 
 semantic diagnostics not just parser diagnostics
-
----
-
-formatting support
