@@ -2,6 +2,13 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.3.1](https://github.com/anakin4747/bpfls/compare/4baf096f46f10f598660d5306a6445d03c1817e8..v0.3.1) - 2026-11-02
+#### Bug Fixes
+- (**ci**) use a vsce version that supports --oidc - ([4baf096](https://github.com/anakin4747/bpfls/commit/4baf096f46f10f598660d5306a6445d03c1817e8)) - Anakin Childerhose
+- (**vscode**) publish under the anakin4747 Marketplace publisher - ([41f6adb](https://github.com/anakin4747/bpfls/commit/41f6adb05491e69fb2f19daf1857085efdb44abc)) - Anakin Childerhose
+
+- - -
+
 ## [v0.3.0](https://github.com/anakin4747/bpfls/compare/d627c279f719cb7fbce306ef834e0f39656cb102..v0.3.0) - 2026-11-02
 #### Features
 - (**diagnostics**) lint deprecated, removed and discouraged constructs - ([8ddbdf2](https://github.com/anakin4747/bpfls/commit/8ddbdf285e1f15436c37c412c5dcb9967205f143)) - Anakin Childerhose
