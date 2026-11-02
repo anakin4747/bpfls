@@ -57,5 +57,6 @@ jobs:
             --pattern '*.vsix' \
             --dir dist
 
+      # --oidc first appeared in vsce 4.1.0, which needs Node 22 or newer.
       - name: Publish to the Visual Studio Marketplace
-        run: npx --yes @vscode/vsce@3 publish --oidc --packagePath dist/*.vsix
+        run: npx --yes @vscode/vsce@^4.1.0 publish --oidc --packagePath dist/*.vsix
