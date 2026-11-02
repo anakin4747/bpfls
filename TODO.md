@@ -20,6 +20,10 @@ Invalid config keys and values are reported (via bpftrace's Config).
 
 # Deprecation and recommendation diagnostics
 
+Known gap: the AST visitor skips `macro` bodies (bpftrace expands macros in
+a later pass bpfls does not run), so nothing below is reported inside a
+macro definition.
+
 Planned bpfls diagnostics for deprecated, removed or discouraged bpftrace
 constructs. Refs are relative to `bpftrace/`. "bpftrace emits" means bpftrace
 already reports it, so bpfls may be able to run that pass instead of
