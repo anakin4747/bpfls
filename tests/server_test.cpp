@@ -333,6 +333,62 @@ std::string describe_case(const HoverCase &c)
            std::to_string(c.character) + " of `" + c.text + "`";
 }
 
+// The capabilities the server answers initialize with.
+lsp::json::Object capabilities()
+{
+    bpfls::test::MemoryStream stream(initialize);
+    bpfls::Server(stream).run();
+    auto out = messages(stream.output());
+    if (out.empty())
+        return {};
+    return out.at(0)
+        .object()
+        .get("result")
+        .object()
+        .get("capabilities")
+        .object();
+}
+
+// A request with id 2 for `method` on the test document, with `extra`
+// params appended after the text document.
+std::string formatting_request(std::string_view method,
+                               std::string_view extra = "")
+{
+    return frame(R"({"jsonrpc":"2.0","id":2,"method":")" + std::string(method) +
+                 R"(","params":{"textDocument":{"uri":")" + uri +
+                 R"("},"options":{"tabSize":4,"insertSpaces":true})" +
+                 std::string(extra) + "}}");
+}
+
+std::string formatting()
+{
+    return formatting_request("textDocument/formatting");
+}
+
+// Runs a session of `messages_in` after initialization and returns the whole
+// response to the request with id 2, or null if there is none.
+lsp::json::Value response_2(const std::string &messages_in)
+{
+    bpfls::test::MemoryStream stream(initialize + initialized + messages_in);
+    bpfls::Server(stream).run();
+    for (auto &message : messages(stream.output())) {
+        auto &object = message.object();
+        if (object.contains("id") && object.get("id").isNumber() &&
+            object.get("id").number() == 2.0)
+            return message;
+    }
+    return nullptr;
+}
+
+// The result of formatting `text` after opening it.
+lsp::json::Value format_result(std::string_view text)
+{
+    auto response = response_2(did_open(text) + formatting());
+    if (!response.isObject() || !response.object().contains("result"))
+        return std::string("<no result>");
+    return response.object().get("result");
+}
+
 // Only compiles if the docs are extracted at build time.
 static_assert(bpfls::bpf_docs("language.md", "### begin/end", "### test")
                   .starts_with("### begin/end"));
@@ -671,6 +727,107 @@ describe server_test("Server", $ {
                 return;
             expect(out.at(1).object().get("uri").string()).to_equal(uri);
             expect(diagnostics_of(out.at(1)).empty()).to_be_true();
+        });
+    });
+    context("formatting", _ {
+        it("advertises formatting whole documents", _ {
+            auto caps = capabilities();
+            expect(caps.contains("documentFormattingProvider")).to_be_true();
+            if (caps.contains("documentFormattingProvider")) {
+                auto &provider = caps.get("documentFormattingProvider");
+                expect(provider.isBoolean() && provider.boolean()).to_be_true();
+            }
+        });
+
+        it("does not advertise formatting ranges", _ {
+            auto caps = capabilities();
+            expect(caps.contains("documentRangeFormattingProvider"))
+                .to_be_false();
+        });
+
+        it("does not advertise formatting as you type", _ {
+            auto caps = capabilities();
+            expect(caps.contains("documentOnTypeFormattingProvider"))
+                .to_be_false();
+        });
+
+        it("rejects range formatting requests", _ {
+            auto response = response_2(
+                did_open("begin{print(1)}") +
+                formatting_request("textDocument/rangeFormatting",
+                                   R"(,"range":{"start":{"line":0,)"
+                                   R"("character":0},"end":{"line":0,)"
+                                   R"("character":5}})"));
+            expect(response.isObject() && response.object().contains("error"))
+                .to_be_true();
+        });
+
+        it("replaces the whole document with bpftrace's layout", _ {
+            auto result = format_result("begin{print(1)}\n\nend{exit()}\n");
+            expect(result.isArray() && result.array().size() == 1).to_be_true();
+            if (result.isArray() && result.array().size() == 1) {
+                auto &edit = result.array().at(0).object();
+                auto &range = edit.get("range").object();
+                auto &start = range.get("start").object();
+                auto &end = range.get("end").object();
+                expect(start.get("line").number()).to_equal(0.0);
+                expect(start.get("character").number()).to_equal(0.0);
+                expect(end.get("line").number()).to_equal(3.0);
+                expect(end.get("character").number()).to_equal(0.0);
+                expect(edit.get("newText").string())
+                    .to_equal(std::string("begin\n{\n  print(1);\n}\n\n"
+                                          "end\n{\n  exit();\n}\n"));
+            }
+        });
+
+        it("ends the edit at the end of an unterminated last line", _ {
+            auto result = format_result(
+                "begin{print(1)}\n// h\u00e9\U0001F600");
+            expect(result.isArray() && result.array().size() == 1).to_be_true();
+            if (result.isArray() && result.array().size() == 1) {
+                auto &end = result.array()
+                                .at(0)
+                                .object()
+                                .get("range")
+                                .object()
+                                .get("end")
+                                .object();
+                expect(end.get("line").number()).to_equal(1.0);
+                // "// h", one UTF-16 unit for é and two for the emoji.
+                expect(end.get("character").number()).to_equal(7.0);
+            }
+        });
+
+        it("makes no edits to a formatted document", _ {
+            auto result = format_result("begin\n{\n  print(1);\n}\n");
+            expect(result.isArray() && result.array().empty()).to_be_true();
+        });
+
+        it("makes no edits to a document with syntax errors", _ {
+            auto result = format_result("begin { $x = ; }\n");
+            expect(result.isArray() && result.array().empty()).to_be_true();
+        });
+
+        it("formats the latest text after a change", _ {
+            auto response = response_2(did_open("begin { }") +
+                                       did_change("end{exit()}") +
+                                       formatting());
+            lsp::json::Value result = nullptr;
+            if (response.isObject() && response.object().contains("result"))
+                result = response.object().get("result");
+            expect(result.isArray() && result.array().size() == 1).to_be_true();
+            if (result.isArray() && result.array().size() == 1) {
+                expect(result.array().at(0).object().get("newText").string())
+                    .to_equal(std::string("end\n{\n  exit();\n}\n"));
+            }
+        });
+
+        it("returns null for a document that was never opened", _ {
+            auto response = response_2(formatting());
+            expect(response.isObject() &&
+                   response.object().contains("result") &&
+                   response.object().get("result").isNull())
+                .to_be_true();
         });
     });
 });

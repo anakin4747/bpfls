@@ -6,6 +6,7 @@
 #include <lsp/connection.h>
 
 #include "diagnostics.h"
+#include "formatting.h"
 #include "hover_docs.h"
 
 namespace bpfls {
@@ -18,6 +19,10 @@ Server::Server(lsp::io::Stream &stream) : endpoint_(stream)
             .capabilities = {
                 .textDocumentSync = lsp::TextDocumentSyncKind::Full,
                 .hoverProvider = true,
+                // Whole documents only: bpftrace's printer lays out complete
+                // programs, so range and on-type formatting are left
+                // unadvertised.
+                .documentFormattingProvider = true,
             },
             .serverInfo = lsp::ServerInfo{ .name = "bpfls" },
         };
@@ -67,6 +72,11 @@ Server::Server(lsp::io::Stream &stream) : endpoint_(stream)
 
     endpoint_.onTextDocumentHover(
         [this](lsp::HoverParams &&params) { return hover(params); });
+
+    endpoint_.onTextDocumentFormatting(
+        [this](lsp::DocumentFormattingParams &&params) {
+        return formatting(params);
+    });
 }
 
 void Server::update(const lsp::DocumentUri &uri, int version, std::string text)
@@ -98,6 +108,48 @@ lsp::TextDocumentHoverResult Server::hover(const lsp::HoverParams &params)
                 .value = std::move(docs),
             },
     };
+}
+
+namespace {
+
+// The position just past the last character of `text`. LSP counts
+// characters in UTF-16 code units.
+lsp::Position end_of(std::string_view text)
+{
+    lsp::Position end{ .line = 0, .character = 0 };
+    for (unsigned char c : text) {
+        if (c == '\n') {
+            ++end.line;
+            end.character = 0;
+        } else if ((c & 0xC0) != 0x80) {
+            // Each UTF-8 lead byte starts a code point; those beyond the BMP
+            // (4-byte sequences) take two UTF-16 units.
+            end.character += c >= 0xF0 ? 2 : 1;
+        }
+    }
+    return end;
+}
+
+} // namespace
+
+lsp::TextDocumentFormattingResult Server::formatting(
+    const lsp::DocumentFormattingParams &params)
+{
+    auto it = documents_.find(params.textDocument.uri.toString());
+    if (it == documents_.end())
+        return nullptr;
+
+    Document &document = *it->second;
+    lsp::Array<lsp::TextEdit> edits;
+    auto formatted = format(document);
+    if (formatted.has_value() && *formatted != document.text()) {
+        edits.push_back({
+            .range = { .start = { .line = 0, .character = 0 },
+                       .end = end_of(document.text()) },
+            .newText = std::move(*formatted),
+        });
+    }
+    return edits;
 }
 
 int Server::run()

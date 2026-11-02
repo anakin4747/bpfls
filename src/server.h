@@ -25,6 +25,10 @@ private:
     // Re-parses `uri` from `text` and publishes its diagnostics.
     void update(const lsp::DocumentUri &uri, int version, std::string text);
     lsp::TextDocumentHoverResult hover(const lsp::HoverParams &params);
+    // Replaces the whole document with bpftrace's formatting of it. Makes no
+    // edits if it is already formatted or has syntax errors.
+    lsp::TextDocumentFormattingResult formatting(
+        const lsp::DocumentFormattingParams &params);
 
     lsp::ServerEndpoint endpoint_;
     bool shutdown_requested_ = false;
