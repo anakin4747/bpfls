@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <vector>
@@ -98,6 +99,26 @@ describe diagnostics_list_test("diagnostics", $ {
         if (messages.size() == 1UL)
             expect(messages.front().starts_with("sarg* is deleted"))
                 .to_be_true();
+    });
+
+    it("reports while loops in a script with syntax errors", _ {
+        auto messages = messages_for("begin { while (1) { } }\n"
+                                     "end { $x = ; }");
+        auto found = std::ranges::any_of(messages, [](const auto &m) {
+            return m.starts_with("While loops are deprecated");
+        });
+        expect(found).to_be_true();
+        expect(messages.size()).to_equal(2UL);
+    });
+
+    it("reports sargN in a script with syntax errors", _ {
+        auto messages = messages_for("uprobe:/b:f { $x = sarg0; }\n"
+                                     "end { $x = ; }");
+        auto found = std::ranges::any_of(messages, [](const auto &m) {
+            return m.starts_with("sarg* is deleted");
+        });
+        expect(found).to_be_true();
+        expect(messages.size()).to_equal(2UL);
     });
 
     it("includes bpfls's own lints", _ {

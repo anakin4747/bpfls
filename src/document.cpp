@@ -20,10 +20,17 @@ Document::Document(std::string uri, std::string text)
 
     // bpftrace's own check for deprecated and removed constructs (while
     // loops, sargN). It only adds diagnostics to the AST.
+    //
+    // PassManager::run() skips every pass once the AST has an error, which
+    // would hide these diagnostics behind any syntax error in the file. The
+    // parser recovers from syntax errors and keeps the rest of the AST, so
+    // run the pass regardless.
     bpftrace::ast::PassManager passes;
     passes.put(ast_);
     passes.add(bpftrace::ast::CreateDeprecatedPass());
-    auto result = passes.run();
+    bpftrace::ast::PassContext context;
+    auto result = passes.foreach(
+        [&](const bpftrace::ast::Pass &pass) { return pass.run(context); });
     if (!result)
         llvm::consumeError(result.takeError());
 }
