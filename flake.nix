@@ -88,6 +88,14 @@
               "-DZLIB_LIBRARY=${zlib.static}/lib/libz.a"
             ];
 
+            # CMake's Release default is -O3, which costs noticeably more
+            # build time on this template-heavy code for little gain. Set
+            # through cmakeFlagsArray because cmakeFlags entries are split
+            # on spaces.
+            preConfigure = ''
+              cmakeFlagsArray+=("-DCMAKE_CXX_FLAGS_RELEASE=-O2 -DNDEBUG")
+            '';
+
             buildInputs = [
               llvm.dev
               libbpf
