@@ -1,0 +1,61 @@
+name: publish
+
+# Publishes the VS Code extension to the Visual Studio Marketplace after
+# .github/workflows/release.yml has created a GitHub release. It uploads the
+# exact .vsix attached to that release, authenticating with OIDC through the
+# Marketplace's trusted publisher (which names this file, publish.yml), so no
+# token is stored in the repository.
+#
+# Run it by hand (workflow_dispatch) with a tag to publish that release again.
+on:
+  workflow_run:
+    workflows:
+      - release
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish, e.g. v0.2.1
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # Only after a successful release, or when anakin4747 runs it by hand.
+    if: >-
+      github.repository == 'anakin4747/bpfls' &&
+      ((github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success') ||
+       (github.event_name == 'workflow_dispatch' &&
+        github.actor == 'anakin4747' &&
+        github.triggering_actor == 'anakin4747'))
+    environment: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      # For a release started by a tag push, head_branch is the tag.
+      TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download the .vsix from the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern '*.vsix' \
+            --dir dist
+
+      - name: Publish to the Visual Studio Marketplace
+        run: npx --yes @vscode/vsce@3 publish --oidc --packagePath dist/*.vsix
