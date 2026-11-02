@@ -4,7 +4,13 @@ A language server for [bpftrace](https://github.com/bpftrace/bpftrace)
 scripts, built on bpftrace's own parser.
 
 - **Diagnostics:** syntax errors as you type, every error in the file, with
-  bpftrace's own messages.
+  bpftrace's own messages. Also deprecated and removed constructs (`while`,
+  `kfunc`, `delete(@m[k])`, `->`, `sym()`, `stack`, `sargN`, ...), invalid
+  config keys and values, `exit()` inside loops, and hints for discouraged
+  patterns such as `strncmp(...) == 0` and positional parameters.
+- **Code actions:** quick fixes for the diagnostics that have a safe
+  rewrite, e.g. `kfunc` to `fentry`, `delete(@m[k])` to `delete(@m, k)`,
+  renamed config keys and "did you mean" for misspelled ones.
 - **Hover:** documentation from bpftrace's `language.md` and `stdlib.md` for
   probe types, config variables, language constructs and standard library
   helpers. The docs are compiled into the binary.
