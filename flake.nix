@@ -107,12 +107,13 @@
               zlib.static
             ];
 
-            # With withTests, the unit tests run in the build; the end-to-end
-            # tests are a separate check (see checks.e2e below).
+            # With withTests, every test runs in the build: the unit tests and
+            # the end-to-end tests (which start the bpfls binary just built),
+            # so bpfls is compiled only once.
             doCheck = withTests;
             checkPhase = ''
               runHook preCheck
-              ctest --output-on-failure --label-exclude e2e
+              ctest --output-on-failure --no-tests=error
               runHook postCheck
             '';
 
@@ -204,31 +205,12 @@
         };
       };
 
-      # `nix flake check` runs every test: the unit tests (in a bpfls build
-      # with tests) and the end-to-end tests, which start the real binary.
-      checks = forAllSystems (
-        pkgs:
-        let
-          inherit (self.packages.${pkgs.stdenv.hostPlatform.system}) vscode-extension;
-          bpfls = self.packages.${pkgs.stdenv.hostPlatform.system}.bpfls.override { withTests = true; };
-        in
-        {
-          inherit bpfls vscode-extension;
-          e2e = bpfls.overrideAttrs {
-            pname = "bpfls-e2e";
-            checkPhase = ''
-              runHook preCheck
-              ctest --output-on-failure --label-regex e2e --no-tests=error
-              runHook postCheck
-            '';
-            installPhase = ''
-              runHook preInstall
-              touch $out
-              runHook postInstall
-            '';
-          };
-        }
-      );
+      # `nix flake check` runs every test: the unit and end-to-end tests, all
+      # in one bpfls build with tests (see checkPhase above).
+      checks = forAllSystems (pkgs: {
+        inherit (self.packages.${pkgs.stdenv.hostPlatform.system}) vscode-extension;
+        bpfls = self.packages.${pkgs.stdenv.hostPlatform.system}.bpfls.override { withTests = true; };
+      });
 
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {

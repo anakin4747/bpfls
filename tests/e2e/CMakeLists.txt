@@ -1,5 +1,6 @@
 # End-to-end tests run the real bpfls binary as a child process. They are
-# labelled e2e, which `make tests` skips and `make e2e` (run in CI) selects.
+# labelled e2e, which `make tests` skips and `make e2e` selects; CI runs them
+# with every other test through `nix flake check`.
 
 file(GLOB tests CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*_test.cpp)
 
