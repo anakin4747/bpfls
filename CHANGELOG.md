@@ -2,6 +2,41 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.3.0](https://github.com/anakin4747/bpfls/compare/d627c279f719cb7fbce306ef834e0f39656cb102..v0.3.0) - 2026-11-02
+#### Features
+- (**diagnostics**) lint deprecated, removed and discouraged constructs - ([8ddbdf2](https://github.com/anakin4747/bpfls/commit/8ddbdf285e1f15436c37c412c5dcb9967205f143)) - Anakin Childerhose
+- (**diagnostics**) report bpftrace's deprecation warnings - ([2045952](https://github.com/anakin4747/bpfls/commit/2045952cf9b481c38f3ac35a7604f1f7f68ca890)) - Anakin Childerhose
+- (**formatting**) format documents with bpftrace's printer - ([def45ab](https://github.com/anakin4747/bpfls/commit/def45abd20959a53d6b042ce23a4960647610812)) - Anakin Childerhose
+- (**server**) offer quick fixes as code actions - ([09dc095](https://github.com/anakin4747/bpfls/commit/09dc095e5e58d636369df82c77ebf5cebe504cdf)) - Anakin Childerhose
+- (**server**) format whole documents - ([92ad02e](https://github.com/anakin4747/bpfls/commit/92ad02e0d1811206a30678ab3950fbb6b7a6d93e)) - Anakin Childerhose
+- (**vscode**) bundle the bpfls binary in the extension - ([e45b2ce](https://github.com/anakin4747/bpfls/commit/e45b2ce0fed1b45f960280f0f55c58d807860c3c)) - Anakin Childerhose
+#### Bug Fixes
+- (**diagnostics**) check for deprecations in scripts with syntax errors - ([9b09a7b](https://github.com/anakin4747/bpfls/commit/9b09a7b987bf9d80f696a2cb02301ac9e6626fa6)) - Anakin Childerhose
+#### Documentation
+- document diagnostics and code actions - ([0ef8b13](https://github.com/anakin4747/bpfls/commit/0ef8b134a60ae3eac2d9ad34b6d8939eddf6d8c6)) - Anakin Childerhose
+- document whole-document formatting - ([2453de5](https://github.com/anakin4747/bpfls/commit/2453de583d93cd2c34263b38d2d64937925c9a02)) - Anakin Childerhose
+#### Build system
+- run the e2e tests in the bpfls check instead of a second build - ([59f8b8f](https://github.com/anakin4747/bpfls/commit/59f8b8f0cb6d7f3d2ffe081e1eae944067217eef)) - Anakin Childerhose
+#### CI
+- publish the VS Code extension to the Marketplace - ([c5abad0](https://github.com/anakin4747/bpfls/commit/c5abad0969c6df98d2ea99ca4a7d5a0cd2d7b3e3)) - Anakin Childerhose
+#### Refactoring
+- (**nix**) inline package definitions into flake.nix - ([d627c27](https://github.com/anakin4747/bpfls/commit/d627c279f719cb7fbce306ef834e0f39656cb102)) - Anakin Childerhose
+#### Chores
+- (**build**) compile bpftrace's config and deprecation pass - ([38a307e](https://github.com/anakin4747/bpfls/commit/38a307e06a53b3ef8df33e47662814875cb53de5)) - Anakin Childerhose
+- (**build**) optimise the flake build with -O2 - ([4b841ef](https://github.com/anakin4747/bpfls/commit/4b841ef9e43274469fcbfaddb65ad192e6cc97d5)) - Anakin Childerhose
+- (**build**) precompile standard library headers - ([e833ba6](https://github.com/anakin4747/bpfls/commit/e833ba68f67972fa25bbbcf78e0388f6580fd0b0)) - Anakin Childerhose
+- (**build**) build the flake package in release mode - ([6da9e62](https://github.com/anakin4747/bpfls/commit/6da9e628df086ca60f50c294d205ac56417e81cb)) - Anakin Childerhose
+- (**build**) build tests in the flake only for checks - ([200d0a8](https://github.com/anakin4747/bpfls/commit/200d0a8afc17873caf723e2e4c3ee1c0fb7915ae)) - Anakin Childerhose
+- (**build**) make tests opt-in with BPFLS_BUILD_TESTS - ([28d6ad3](https://github.com/anakin4747/bpfls/commit/28d6ad3e446cd334921734135ae93335e05c97b2)) - Anakin Childerhose
+- add todo for hints to never use shorthand notation - ([a4a16ea](https://github.com/anakin4747/bpfls/commit/a4a16ea269f2e8ea40b4b4b3747483b5be5fc2d2)) - Anakin Childerhose
+- note that macro bodies are not linted - ([6693c57](https://github.com/anakin4747/bpfls/commit/6693c57e578a00a51b1f262f29561c34e79a40fc)) - Anakin Childerhose
+- use the git skill for any change to the codebase - ([0035f68](https://github.com/anakin4747/bpfls/commit/0035f6891539c41468eec2ad299891f471b2d426)) - Anakin Childerhose
+- list deprecation diagnostics and code actions in TODO - ([045fa35](https://github.com/anakin4747/bpfls/commit/045fa35fb78c9284ed0fcc088277caceff09e025)) - Anakin Childerhose
+- add TODO for config option diagnostics - ([2b73bce](https://github.com/anakin4747/bpfls/commit/2b73bce8d6d419991f7f68b505e231496c4fee1d)) - Anakin Childerhose
+- remove finished TODOs - ([bcdd6ec](https://github.com/anakin4747/bpfls/commit/bcdd6ec73d2b15cf4752333d8e0de0bf806c60b4)) - Anakin Childerhose
+
+- - -
+
 ## [v0.2.1](https://github.com/anakin4747/bpfls/compare/9c1e59efdab2e530a26d484138852ffef57b6fb7..v0.2.1) - 2026-11-01
 #### CD
 - check the release commit builds before pushing it - ([0b8a933](https://github.com/anakin4747/bpfls/commit/0b8a933812bb7b41fc05fdc04c8c66ffdc0404ab)) - Anakin Childerhose

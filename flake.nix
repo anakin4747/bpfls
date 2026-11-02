@@ -15,7 +15,7 @@
       ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (s: f nixpkgs.legacyPackages.${s});
 
-      version = "0.2.1";
+      version = "0.3.0";
 
       # Written as callPackage functions so the result has .override
       # (e.g. bpfls-static below).
