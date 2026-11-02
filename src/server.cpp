@@ -1,5 +1,6 @@
 #include "server.h"
 
+#include <algorithm>
 #include <string>
 #include <string_view>
 
@@ -8,6 +9,7 @@
 #include "diagnostics.h"
 #include "formatting.h"
 #include "hover_docs.h"
+#include "lints.h"
 
 namespace bpfls {
 
@@ -19,6 +21,11 @@ Server::Server(lsp::io::Stream &stream) : endpoint_(stream)
             .capabilities = {
                 .textDocumentSync = lsp::TextDocumentSyncKind::Full,
                 .hoverProvider = true,
+                .codeActionProvider =
+                    lsp::CodeActionOptions{
+                        .codeActionKinds = lsp::Array<lsp::CodeActionKindEnum>{
+                            lsp::CodeActionKind::QuickFix },
+                    },
                 // Whole documents only: bpftrace's printer lays out complete
                 // programs, so range and on-type formatting are left
                 // unadvertised.
@@ -77,6 +84,9 @@ Server::Server(lsp::io::Stream &stream) : endpoint_(stream)
         [this](lsp::DocumentFormattingParams &&params) {
         return formatting(params);
     });
+
+    endpoint_.onTextDocumentCodeAction(
+        [this](lsp::CodeActionParams &&params) { return code_action(params); });
 }
 
 void Server::update(const lsp::DocumentUri &uri, int version, std::string text)
@@ -150,6 +160,65 @@ lsp::TextDocumentFormattingResult Server::formatting(
         });
     }
     return edits;
+}
+
+namespace {
+
+bool before(const lsp::Position &a, const lsp::Position &b)
+{
+    return a.line < b.line || (a.line == b.line && a.character < b.character);
+}
+
+// Whether two ranges overlap or touch, so that a cursor at either end of a
+// diagnostic still gets its fixes.
+bool touches(const lsp::Range &a, const lsp::Range &b)
+{
+    return !before(a.end, b.start) && !before(b.end, a.start);
+}
+
+// Whether a client that asked only for `only` kinds wants quick fixes.
+// Kinds are hierarchical: "" and "quickfix" both cover "quickfix".
+bool wants_quick_fixes(const lsp::CodeActionContext &context)
+{
+    if (!context.only.has_value())
+        return true;
+    return std::ranges::any_of(*context.only, [](const auto &kind) {
+        std::string value = static_cast<std::string>(kind);
+        return value.empty() || value == "quickfix";
+    });
+}
+
+} // namespace
+
+lsp::TextDocumentCodeActionResult Server::code_action(
+    const lsp::CodeActionParams &params)
+{
+    auto it = documents_.find(params.textDocument.uri.toString());
+    if (it == documents_.end())
+        return nullptr;
+
+    lsp::Array<lsp::OneOf<lsp::Command, lsp::CodeAction>> actions;
+    if (!wants_quick_fixes(params.context))
+        return actions;
+
+    for (auto &lint : lint(*it->second)) {
+        if (!touches(lint.diagnostic.range, params.range))
+            continue;
+        // Only one fix is unambiguous enough to apply on its own.
+        bool preferred = lint.fixes.size() == 1;
+        for (auto &fix : lint.fixes) {
+            lsp::Map<lsp::DocumentUri, lsp::Array<lsp::TextEdit>> changes;
+            changes[params.textDocument.uri] = std::move(fix.edits);
+            actions.push_back(lsp::CodeAction{
+                .title = std::move(fix.title),
+                .kind = lsp::CodeActionKind::QuickFix,
+                .diagnostics = lsp::Array<lsp::Diagnostic>{ lint.diagnostic },
+                .isPreferred = preferred,
+                .edit = lsp::WorkspaceEdit{ .changes = std::move(changes) },
+            });
+        }
+    }
+    return actions;
 }
 
 int Server::run()

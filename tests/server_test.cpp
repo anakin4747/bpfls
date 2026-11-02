@@ -395,6 +395,25 @@ static_assert(bpfls::bpf_docs("language.md", "### begin/end", "### test")
 
 } // namespace
 
+// A code action request with id 2 for `start_char`..`end_char` on `line`,
+// optionally limited to the kinds in `only` (a JSON array).
+std::string code_action(unsigned line,
+                        unsigned start_char,
+                        unsigned end_char,
+                        const std::string &only = "")
+{
+    auto pos = [&](unsigned c) {
+        return R"({"line":)" + std::to_string(line) + R"(,"character":)" +
+               std::to_string(c) + "}";
+    };
+    return frame(
+        R"({"jsonrpc":"2.0","id":2,"method":"textDocument/codeAction",)"
+        R"("params":{"textDocument":{"uri":")" +
+        uri + R"("},"range":{"start":)" + pos(start_char) + R"(,"end":)" +
+        pos(end_char) + R"(},"context":{"diagnostics":[])" +
+        (only.empty() ? "" : R"(,"only":)" + only) + "}}}");
+}
+
 describe server_test("Server", $ {
     it("answers initialize with its name", _ {
         bpfls::test::MemoryStream stream(initialize);
@@ -729,6 +748,79 @@ describe server_test("Server", $ {
             expect(diagnostics_of(out.at(1)).empty()).to_be_true();
         });
     });
+    context("code actions", _ {
+        it("advertises quick fixes", _ {
+            auto caps = capabilities();
+            expect(caps.contains("codeActionProvider")).to_be_true();
+            if (caps.contains("codeActionProvider")) {
+                auto &kinds = caps.get("codeActionProvider")
+                                  .object()
+                                  .get("codeActionKinds")
+                                  .array();
+                expect(kinds.size() == 1 && kinds.at(0).string() == "quickfix")
+                    .to_be_true();
+            }
+        });
+
+        it("offers the fix for a lint under the cursor", _ {
+            auto response = response_2(did_open("kfunc:f { }") +
+                                       code_action(0, 2, 2));
+            auto &result = response.object().get("result");
+            expect(result.isArray() && result.array().size() == 1).to_be_true();
+            if (!result.isArray() || result.array().size() != 1)
+                return;
+            auto &action = result.array().at(0).object();
+            expect(action.get("title").string())
+                .to_equal(std::string("Replace with fentry"));
+            expect(action.get("kind").string())
+                .to_equal(std::string("quickfix"));
+            expect(action.get("isPreferred").boolean()).to_be_true();
+            expect(action.get("diagnostics").array().size()).to_equal(1UL);
+            auto &edits = action.get("edit")
+                              .object()
+                              .get("changes")
+                              .object()
+                              .get(uri)
+                              .array();
+            expect(edits.size()).to_equal(1UL);
+            if (edits.size() == 1UL)
+                expect(edits.at(0).object().get("newText").string())
+                    .to_equal(std::string("fentry"));
+        });
+
+        it("offers nothing away from any lint", _ {
+            auto response = response_2(did_open("kfunc:f { }\nbegin { }") +
+                                       code_action(1, 0, 3));
+            auto &result = response.object().get("result");
+            expect(result.isArray() && result.array().empty()).to_be_true();
+        });
+
+        it("offers nothing to a client that only wants refactorings", _ {
+            auto response = response_2(did_open("kfunc:f { }") +
+                                       code_action(0, 2, 2, R"(["refactor"])"));
+            auto &result = response.object().get("result");
+            expect(result.isArray() && result.array().empty()).to_be_true();
+        });
+
+        it("offers every did-you-mean fix, none preferred", _ {
+            auto response = response_2(
+                did_open("config = { max_probe = 1 }\nbegin { }") +
+                code_action(0, 12, 12));
+            auto &result = response.object().get("result");
+            expect(result.isArray() && result.array().size() >= 1).to_be_true();
+            if (!result.isArray())
+                return;
+            for (const auto &action : result.array())
+                expect(action.object().get("isPreferred").boolean())
+                    .to_equal(result.array().size() == 1);
+        });
+
+        it("returns null for a document that was never opened", _ {
+            auto response = response_2(code_action(0, 0, 0));
+            expect(response.object().get("result").isNull()).to_be_true();
+        });
+    });
+
     context("formatting", _ {
         it("advertises formatting whole documents", _ {
             auto caps = capabilities();

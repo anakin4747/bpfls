@@ -29,6 +29,10 @@ private:
     // edits if it is already formatted or has syntax errors.
     lsp::TextDocumentFormattingResult formatting(
         const lsp::DocumentFormattingParams &params);
+    // Quick fixes for the lints (see lints.h) whose range touches the
+    // requested range.
+    lsp::TextDocumentCodeActionResult code_action(
+        const lsp::CodeActionParams &params);
 
     lsp::ServerEndpoint endpoint_;
     bool shutdown_requested_ = false;
