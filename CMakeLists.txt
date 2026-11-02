@@ -115,6 +115,18 @@ add_library(bpfls_core STATIC
 target_include_directories(bpfls_core PUBLIC src)
 target_link_libraries(bpfls_core PUBLIC bpftrace_parser lsp)
 
+# Nearly all of every translation unit is the C++ standard library (mostly
+# <ranges>, <format> and <chrono>). Precompile it once per target instead of
+# parsing it again for every file. Only standard headers are listed, so
+# nothing generated has to exist first and nothing needs keeping in sync.
+set(BPFLS_PCH
+  <algorithm> <chrono> <format> <functional> <map> <memory>
+  <optional> <ranges> <string> <unordered_map> <variant> <vector>
+)
+foreach(target IN ITEMS bpftrace_parser bpfls_core lsp)
+  target_precompile_headers(${target} PRIVATE ${BPFLS_PCH})
+endforeach()
+
 add_executable(bpfls src/main.cpp)
 target_link_libraries(bpfls PRIVATE bpfls_core)
 # The docs bpfls shows are compiled in, so the binary is all there is to
