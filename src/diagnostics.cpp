@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "lints.h"
+
 namespace bpfls {
 
 namespace {
@@ -47,6 +49,8 @@ std::vector<lsp::Diagnostic> diagnostics(Document &document)
     all.foreach(Severity::Warning, [&](const bpftrace::ast::Diagnostic &d) {
         result.push_back(to_lsp(d, lsp::DiagnosticSeverity::Warning));
     });
+    for (auto &lint : lint(document))
+        result.push_back(std::move(lint.diagnostic));
     return result;
 }
 

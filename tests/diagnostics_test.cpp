@@ -99,6 +99,14 @@ describe diagnostics_list_test("diagnostics", $ {
             expect(messages.front().starts_with("sarg* is deleted"))
                 .to_be_true();
     });
+
+    it("includes bpfls's own lints", _ {
+        auto messages = messages_for("kprobe:f { @[stack] = count(); }");
+        expect(messages.size()).to_equal(1UL);
+        if (messages.size() == 1UL)
+            expect(messages.front().starts_with("stack was removed"))
+                .to_be_true();
+    });
 });
 
 CPPSPEC_MAIN(diagnostics_test, diagnostics_list_test);

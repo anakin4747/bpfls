@@ -114,6 +114,7 @@ add_library(bpfls_core STATIC
   src/document.cpp
   src/formatting.cpp
   src/hover_docs.cpp
+  src/lints.cpp
   src/server.cpp
 )
 target_include_directories(bpfls_core PUBLIC src)
