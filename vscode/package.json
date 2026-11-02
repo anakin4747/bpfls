@@ -3,7 +3,7 @@
   "displayName": "bpftrace (bpfls)",
   "description": "bpftrace language support powered by the bpfls language server",
   "version": "0.3.0",
-  "publisher": "bpfls",
+  "publisher": "anakin4747",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

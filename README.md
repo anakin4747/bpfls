@@ -28,7 +28,7 @@ nix run git+https://github.com/anakin4747/bpfls             # or just run it
 ```
 
 The flake also provides `packages.vscode-extension` and an overlay that adds
-`bpfls` and `vscode-extensions.bpfls.bpfls`.
+`bpfls` and `vscode-extensions.anakin4747.bpfls`.
 
 Without Nix, build with CMake (see Development) and put `build/bpfls` on
 your `PATH`.

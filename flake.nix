@@ -196,12 +196,12 @@
         default = self.packages.${pkgs.stdenv.hostPlatform.system}.bpfls;
       });
 
-      # Adds bpfls and, following nixpkgs' layout, vscode-extensions.bpfls.bpfls
+      # Adds bpfls and, following nixpkgs' layout, vscode-extensions.anakin4747.bpfls
       # for use with e.g. vscode-with-extensions.
       overlays.default = final: prev: {
         bpfls = mkBpfls final;
         vscode-extensions = prev.lib.recursiveUpdate prev.vscode-extensions {
-          bpfls.bpfls = mkVscodeExtension final;
+          anakin4747.bpfls = mkVscodeExtension final;
         };
       };
 
