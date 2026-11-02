@@ -2,7 +2,8 @@
 // compile, because they pull in the whole bpftrace runtime (bcc, libbpf
 // loading, ...).
 //
-// Keep each function identical to its upstream counterpart.
+// Keep each function identical to its upstream counterpart, except stubs
+// for libraries that are not linked at all.
 
 #include "attached_probe.h"
 #include "log.h"
@@ -41,3 +42,10 @@ bpf_prog_type progtype(ProbeType t)
 }
 
 } // namespace bpftrace
+
+// libbpf is not linked. ast.cpp's shared_ptr release code can reach
+// btf::detail::Handle's destructor, which calls btf__free, but bpfls never
+// loads BTF, so no Handle (and no struct btf) is ever created.
+extern "C" void btf__free(struct btf *)
+{
+}

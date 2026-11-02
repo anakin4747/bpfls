@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Anakin Childerhose <anakin@childerhose.ca>
+Date: Sun, 1 Nov 2026 21:00:00 -0500
+Subject: [PATCH] config: list the known configuration keys
+
+A language server suggests the closest known key when a script sets an
+unknown one. The keys only live in CONFIG_KEY_MAP, which is private to
+config.cpp, so expose their names.
+---
+diff --git a/src/config.cpp b/src/config.cpp
+index 86e5f44..9fbb23d 100644
+--- a/src/config.cpp
++++ b/src/config.cpp
+@@ -332,6 +332,15 @@ const std::map<std::string, AnyParser> CONFIG_KEY_MAP = {
+   { UNSTABLE_DW_USTACK, CONFIG_FIELD_PARSER(unstable_dw_ustack) },
+ };
+ 
++std::vector<std::string> Config::keys()
++{
++  std::vector<std::string> keys;
++  for (const auto &[key, _] : CONFIG_KEY_MAP) {
++    keys.push_back(key);
++  }
++  return keys;
++}
++
+ // These symbols are deprecated, and have been remapped elsewhere.
+ const std::map<std::string, std::string> RENAMED = {
+   { "strlen", "max_strlen" },
+diff --git a/src/config.h b/src/config.h
+index 253aaa7..a4d495e 100644
+--- a/src/config.h
++++ b/src/config.h
+@@ -2,6 +2,7 @@
+ 
+ #include <cstdint>
+ #include <utility>
++#include <vector>
+ 
+ #include "types.h"
+ #include "util/result.h"
+@@ -51,6 +52,9 @@ public:
+   Result<OK> set(const std::string &key, uint64_t val);
+   Result<OK> set(const std::string &key, const std::string &val);
+ 
++  // The name of every configuration option, in sorted order.
++  static std::vector<std::string> keys();
++
+   // Helpers for analysis of variables.
+   bool is_unstable(const std::string &key);
+   Result<OK> load_environment();

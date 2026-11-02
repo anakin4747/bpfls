@@ -40,6 +40,7 @@ set(BPFTRACE_SRC ${BPFTRACE_PATCHED_DIR}/src)
 set(BPFTRACE_SOURCES
   parser.cpp
   btf/btf.cpp
+  config.cpp
   log.cpp
   probe_types.cpp
   types.cpp
@@ -48,6 +49,7 @@ set(BPFTRACE_SOURCES
   ast/diagnostic.cpp
   ast/location.cpp
   ast/pass_manager.cpp
+  ast/passes/deprecated.cpp
   ast/passes/printer.cpp
   util/int_parser.cpp
   util/result.cpp
