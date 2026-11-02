@@ -2,7 +2,9 @@ name: release
 
 # Runs when `make release` (scripts/release.sh) pushes an annotated v* tag.
 # Publishes a GitHub release with the static bpfls binary and the VS Code
-# extension, using the tag message (the changelog) as the release notes.
+# extension (a linux-x64 .vsix with that binary bundled), using the tag
+# message (the changelog) as the release notes. When it succeeds,
+# .github/workflows/publish.yml publishes the .vsix to the VS Code Marketplace.
 on:
   push:
     tags:
@@ -65,14 +67,17 @@ jobs:
           nix build -L .#bpfls-static
           install -D --mode=0755 result/bin/bpfls "dist/bpfls-$TAG-x86_64-linux"
 
+      # The extension runs the bundled server/bpfls (see vscode/extension.js),
+      # so the .vsix is specific to linux-x64.
       - name: Package the VS Code extension
         working-directory: vscode
         run: |
+          install -D --mode=0755 "../dist/bpfls-$TAG-x86_64-linux" server/bpfls
+          cp ../LICENSE LICENSE
           nix develop .. --command bash -c "
             npm ci --no-audit --no-fund &&
-            npx --yes @vscode/vsce@3 package \
-              --allow-missing-repository --skip-license \
-              --out ../dist/bpfls-$TAG.vsix < /dev/null"
+            npx --yes @vscode/vsce@3 package --target linux-x64 \
+              --out ../dist/bpfls-$TAG-linux-x64.vsix < /dev/null"
 
       - name: Checksums
         working-directory: dist

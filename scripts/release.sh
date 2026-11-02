@@ -4,7 +4,9 @@
 # since the last tag, then has cocogitto write CHANGELOG.md, bump the versions
 # in flake.nix and vscode/package.json (see pre_bump_hooks in cog.toml),
 # commit that as the release commit and tag it with an annotated tag carrying
-# the changelog. Pushing the tag starts .github/workflows/release.yml.
+# the changelog. Pushing the tag starts .github/workflows/release.yml, which
+# creates the GitHub release; when it succeeds,
+# .github/workflows/publish.yml publishes the VS Code extension.
 #
 # Usage: scripts/release.sh [--dry-run] [--no-push]
 

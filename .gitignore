@@ -2,3 +2,7 @@ build/
 compile_commands.json
 /.cache/
 vscode/node_modules/
+# Copied in when packaging the .vsix (see .github/workflows/release.yml).
+vscode/server/
+vscode/LICENSE
+vscode/*.vsix

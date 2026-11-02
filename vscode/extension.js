@@ -12,7 +12,9 @@ let client;
 // 1. the bpfls.serverPath setting;
 // 2. build/bpfls of the bpfls repository, when the extension runs from its
 //    source tree (vscode/ -> ../build/bpfls), as `make vscode` does;
-// 3. bpfls on PATH, as installed by a package.
+// 3. server/bpfls inside the extension, as bundled in the platform-specific
+//    .vsix published to the Marketplace (see .github/workflows/release.yml);
+// 4. bpfls on PATH, as installed by a package.
 function serverPath(context) {
     const configured = vscode.workspace
         .getConfiguration('bpfls')
@@ -23,6 +25,10 @@ function serverPath(context) {
     const repoBuild = path.join(context.extensionPath, '..', 'build', 'bpfls');
     if (fs.existsSync(repoBuild)) {
         return repoBuild;
+    }
+    const bundled = path.join(context.extensionPath, 'server', 'bpfls');
+    if (fs.existsSync(bundled)) {
+        return bundled;
     }
     return 'bpfls';
 }

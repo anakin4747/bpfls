@@ -1,0 +1,10 @@
+# Files left out of the .vsix. server/bpfls, bundled by
+# .github/workflows/release.yml, is kept.
+.vscodeignore
+.gitignore
+package-lock.json
+*.vsix
+node_modules/.package-lock.json
+node_modules/**/*.md
+node_modules/**/*.d.ts
+node_modules/**/*.map

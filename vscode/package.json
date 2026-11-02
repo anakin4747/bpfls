@@ -5,7 +5,10 @@
   "version": "0.2.1",
   "publisher": "bpfls",
   "license": "Apache-2.0",
-  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anakin4747/bpfls"
+  },
   "engines": {
     "vscode": "^1.91.0"
   },
