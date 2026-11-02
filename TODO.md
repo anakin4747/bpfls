@@ -3,7 +3,6 @@ Completion
 
 ---
 
-
 rename
 
 ---
@@ -158,3 +157,8 @@ fix:
   - Fix: `(uint64)pid`, `pid(init)` / `tid(init)`
   - Code action: n/a. Which fix applies depends on why the value is used.
   - Refs: docs/migration_guide.md:36, :158
+
+---
+
+hint and code action for using the short form instead of the long form
+since you should always use the long form for readability
