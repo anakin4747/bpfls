@@ -48,6 +48,7 @@ set(BPFTRACE_SOURCES
   ast/diagnostic.cpp
   ast/location.cpp
   ast/pass_manager.cpp
+  ast/passes/printer.cpp
   util/int_parser.cpp
   util/result.cpp
   util/strings.cpp
@@ -109,6 +110,7 @@ add_subdirectory(lsp-framework EXCLUDE_FROM_ALL)
 add_library(bpfls_core STATIC
   src/diagnostics.cpp
   src/document.cpp
+  src/formatting.cpp
   src/hover_docs.cpp
   src/server.cpp
 )
