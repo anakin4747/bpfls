@@ -1,5 +1,6 @@
 #include <memory>
 #include <string>
+#include <vector>
 
 // cppspec defines macros such as `it`, which clash with identifiers in
 // bpftrace's headers, so project headers must be included first.
@@ -8,6 +9,18 @@
 #include "cppspec.hpp"
 
 namespace {
+
+// The messages of all diagnostics published for `text`.
+std::vector<std::string> messages_for(const std::string &text)
+{
+    bpfls::Document document("file:///t.bt", text);
+    std::vector<std::string> result;
+    for (const auto &d : bpfls::diagnostics(document)) {
+        const auto *m = std::get_if<std::string>(&d.message);
+        result.push_back(m != nullptr ? *m : "<not plain text>");
+    }
+    return result;
+}
 
 // A bpftrace diagnostic spanning 1-based line 2, columns 5 up to 9.
 bpftrace::ast::Diagnostic make_diagnostic()
@@ -70,4 +83,22 @@ describe diagnostics_test("to_lsp", $ {
     });
 });
 
-CPPSPEC_MAIN(diagnostics_test);
+describe diagnostics_list_test("diagnostics", $ {
+    it("includes bpftrace's warning for while loops", _ {
+        auto messages = messages_for("begin { while (1) { } }");
+        expect(messages.size()).to_equal(1UL);
+        if (messages.size() == 1UL)
+            expect(messages.front().starts_with("While loops are deprecated"))
+                .to_be_true();
+    });
+
+    it("includes bpftrace's error for sargN", _ {
+        auto messages = messages_for("uprobe:/b:f { $x = sarg0; }");
+        expect(messages.size()).to_equal(1UL);
+        if (messages.size() == 1UL)
+            expect(messages.front().starts_with("sarg* is deleted"))
+                .to_be_true();
+    });
+});
+
+CPPSPEC_MAIN(diagnostics_test, diagnostics_list_test);

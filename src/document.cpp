@@ -3,6 +3,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "ast/pass_manager.h"
+#include "ast/passes/deprecated.h"
 #include "ast/visitor.h"
 #include "parser.h"
 
@@ -12,6 +14,23 @@ Document::Document(std::string uri, std::string text)
     : uri_(std::move(uri)), ast_(uri_, std::move(text))
 {
     ast_.root = bpftrace::Parser(ast_).parse();
+    parsed_ = ast_.diagnostics().ok();
+    if (ast_.root == nullptr)
+        return;
+
+    // bpftrace's own check for deprecated and removed constructs (while
+    // loops, sargN). It only adds diagnostics to the AST.
+    bpftrace::ast::PassManager passes;
+    passes.put(ast_);
+    passes.add(bpftrace::ast::CreateDeprecatedPass());
+    auto result = passes.run();
+    if (!result)
+        llvm::consumeError(result.takeError());
+}
+
+bool Document::parsed() const
+{
+    return parsed_;
 }
 
 const std::string &Document::uri() const

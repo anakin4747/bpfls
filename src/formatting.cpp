@@ -9,7 +9,7 @@ namespace bpfls {
 std::optional<std::string> format(Document &document)
 {
     auto &ast = document.ast();
-    if (ast.root == nullptr || !ast.diagnostics().ok())
+    if (ast.root == nullptr || !document.parsed())
         return std::nullopt;
 
     std::ostringstream out;
